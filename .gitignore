@@ -1,0 +1,32 @@
+# Dependencias
+node_modules/
+
+# Variables de entorno
+.env
+backend/.env
+frontend/.env
+
+# Build
+dist/
+build/
+frontend/dist/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Sistema
+.DS_Store
+Thumbs.db
+*.log
+
+# Archivos de caché
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/sdks
+!.yarn/versions
