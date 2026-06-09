@@ -1,9 +1,5 @@
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3001/api";
 
-/**
- * Obtiene el documento desde el backend
- * @returns {Promise<Object>} Documento con contenido BlockNote
- */
 export const getDocument = async () => {
   const response = await fetch(`${API_URL}/document`);
   const data = await response.json();
@@ -11,20 +7,96 @@ export const getDocument = async () => {
   return data.data;
 };
 
-/**
- * Guarda el documento en el backend
- * @param {Object} params
- * @param {Array} params.content - Bloques BlockNote
- * @param {string} [params.title] - Título opcional
- * @returns {Promise<Object>} Documento actualizado
- */
 export const saveDocument = async ({ content, title }) => {
   const response = await fetch(`${API_URL}/document`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ content, title }),
   });
   const data = await response.json();
   if (!data.success) throw new Error(data.message);
   return data.data;
+};
+
+export const getCollections = async () => {
+  const response = await fetch(`${API_URL}/collections`);
+  const data = await response.json();
+  if (!data.success) throw new Error(data.message);
+  return data.data;
+};
+
+export const createCollection = async (name) => {
+  const response = await fetch(`${API_URL}/collections`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name }),
+  });
+  const data = await response.json();
+  if (!data.success) throw new Error(data.message);
+  return data.data;
+};
+
+export const renameCollection = async (id, name) => {
+  const response = await fetch(`${API_URL}/collections/${id}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name }),
+  });
+  const data = await response.json();
+  if (!data.success) throw new Error(data.message);
+  return data.data;
+};
+
+export const deleteCollection = async (id) => {
+  const response = await fetch(`${API_URL}/collections/${id}`, {
+    method: "DELETE",
+  });
+  const data = await response.json();
+  if (!data.success) throw new Error(data.message);
+  return data;
+};
+
+export const getNotesByCollection = async (collectionId) => {
+  const response = await fetch(`${API_URL}/collections/${collectionId}/notes`);
+  const data = await response.json();
+  if (!data.success) throw new Error(data.message);
+  return data.data;
+};
+
+export const createNote = async (collectionId, title) => {
+  const response = await fetch(`${API_URL}/collections/${collectionId}/notes`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ title }),
+  });
+  const data = await response.json();
+  if (!data.success) throw new Error(data.message);
+  return data.data;
+};
+
+export const getNoteById = async (noteId) => {
+  const response = await fetch(`${API_URL}/document/${noteId}`);
+  const data = await response.json();
+  if (!data.success) throw new Error(data.message);
+  return data.data;
+};
+
+export const updateNoteById = async (noteId, { content, title }) => {
+  const response = await fetch(`${API_URL}/document/${noteId}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ content, title }),
+  });
+  const data = await response.json();
+  if (!data.success) throw new Error(data.message);
+  return data.data;
+};
+
+export const deleteNote = async (noteId) => {
+  const response = await fetch(`${API_URL}/document/${noteId}`, {
+    method: "DELETE",
+  });
+  const data = await response.json();
+  if (!data.success) throw new Error(data.message);
+  return data;
 };

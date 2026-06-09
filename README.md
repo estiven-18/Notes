@@ -1,4 +1,4 @@
-# Notion Clone
+# Notes
 
 Aplicación web minimalista inspirada en Notion, construida con **React + BlockNote + Express + MongoDB**.
 

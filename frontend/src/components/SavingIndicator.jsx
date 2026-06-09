@@ -20,9 +20,7 @@ const SavingIndicator = ({ isSaving, lastSaved }) => {
     return (
       <div className="flex items-center space-x-1.5 text-gray-500">
         <span className="h-2 w-2 rounded-full bg-green-500"></span>
-        <span className="text-xs">
-          Guardado {lastSaved}
-        </span>
+        <span className="text-xs">Guardado {lastSaved}</span>
       </div>
     );
   }

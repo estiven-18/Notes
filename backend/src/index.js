@@ -3,6 +3,7 @@ import cors from "cors";
 import dotenv from "dotenv";
 import connectDB from "./config/database.js";
 import documentRoutes from "./routes/documentRoutes.js";
+import collectionRoutes from "./routes/collectionRoutes.js";
 
 // Cargar variables de entorno
 dotenv.config();
@@ -26,6 +27,7 @@ app.use(express.urlencoded({ extended: true }));
  * Rutas de la API
  */
 app.use("/api/document", documentRoutes);
+app.use("/api/collections", collectionRoutes);
 
 /**
  * Health check endpoint

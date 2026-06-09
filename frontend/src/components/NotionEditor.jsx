@@ -1,124 +1,168 @@
-import { useEffect, useState, useCallback } from 'react';
-import { useCreateBlockNote } from '@blocknote/react';
-import { BlockNoteView } from '@blocknote/mantine';
-import '@blocknote/mantine/style.css';
-import { getDocument, saveDocument } from '../services/api';
-import useAutosave from '../hooks/useAutosave';
-import SavingIndicator from './SavingIndicator';
+import { useEffect, useState, useCallback, useRef } from "react";
+import { useCreateBlockNote } from "@blocknote/react";
+import { BlockNoteView } from "@blocknote/mantine";
+import "@blocknote/mantine/style.css";
+import { getNoteById, updateNoteById } from "../services/api";
+import useAutosave from "../hooks/useAutosave";
+import SavingIndicator from "./SavingIndicator";
 
-const NotionEditor = () => {
-  const [documentId, setDocumentId] = useState(null);
+const NotionEditor = ({ noteId, onTitleChange }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState(null);
   const [lastSaved, setLastSaved] = useState(null);
+  const [title, setTitle] = useState("");
+  const titleTimeoutRef = useRef(null);
+  const previousNoteId = useRef(null);
+  const isSavingRef = useRef(false);
+  const isLoadedRef = useRef(false);
 
-  // Crear editor BlockNote
-  const editor = useCreateBlockNote({
-    initialContent: [
-      {
-        type: 'paragraph',
-        content: 'Cargando documento...',
-      },
-    ],
-  });
+  const editor = useCreateBlockNote();
 
-  // Cargar documento al iniciar
-  useEffect(() => {
-    const loadDocument = async () => {
-      try {
-        const doc = await getDocument();
-        setDocumentId(doc._id);
-
-        // Cargar contenido en el editor si existe
-        if (doc.content && doc.content.length > 0) {
-          editor.replaceBlocks(editor.document, doc.content);
-        } else {
-          // Contenido inicial vacío
-          editor.replaceBlocks(editor.document, [
-            {
-              type: 'paragraph',
-              content: [],
-            },
-          ]);
-        }
-
-        document.title = doc.title || 'Notion Clone - Editor';
-      } catch (err) {
-        setError(err.message);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    if (editor) {
-      loadDocument();
-    }
-  }, [editor]);
-
-  // Función de guardado
-  const handleSave = useCallback(async () => {
-    if (!editor || !documentId) return;
-
+  const saveCurrentNote = useCallback(async () => {
+    const id = previousNoteId.current;
+    if (!editor || !id || isSavingRef.current) return;
+    isSavingRef.current = true;
     try {
       setIsSaving(true);
       const content = editor.document;
-      await saveDocument({ content });
+      await updateNoteById(id, { content });
       setLastSaved(new Date().toLocaleTimeString());
     } catch (err) {
-      console.error('Error al guardar:', err);
+      console.error("Error al guardar:", err);
     } finally {
       setIsSaving(false);
+      isSavingRef.current = false;
     }
-  }, [editor, documentId]);
+  }, [editor]);
 
-  // Autosave con debounce de 2 segundos
+  const loadNote = useCallback(
+    async (id) => {
+      if (!editor) return;
+      setIsLoading(true);
+      setError(null);
+      try {
+        const note = await getNoteById(id);
+        setTitle(note.title || "Sin título");
+        if (note.content && note.content.length > 0) {
+          editor.replaceBlocks(editor.document, note.content);
+        } else {
+          editor.replaceBlocks(editor.document, [
+            { type: "paragraph", content: [] },
+          ]);
+        }
+        isLoadedRef.current = true;
+      } catch (err) {
+        setError(err.message);
+        isLoadedRef.current = false;
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [editor],
+  );
+
+  useEffect(() => {
+    if (!noteId || !editor) return;
+
+    if (previousNoteId.current && previousNoteId.current !== noteId) {
+      saveCurrentNote().then(() => {
+        previousNoteId.current = noteId;
+        loadNote(noteId);
+      });
+    } else if (!previousNoteId.current) {
+      previousNoteId.current = noteId;
+      loadNote(noteId);
+    }
+  }, [noteId, editor, saveCurrentNote, loadNote]);
+
+  const handleSave = useCallback(async () => {
+    if (!editor || !noteId || isSavingRef.current) return;
+    isSavingRef.current = true;
+    try {
+      setIsSaving(true);
+      const content = editor.document;
+      await updateNoteById(noteId, { content });
+      setLastSaved(new Date().toLocaleTimeString());
+    } catch (err) {
+      console.error("Error al guardar:", err);
+    } finally {
+      setIsSaving(false);
+      isSavingRef.current = false;
+    }
+  }, [editor, noteId]);
+
   useAutosave(handleSave, [editor?.document], 2000);
 
-  if (error) {
+  const handleTitleChange = (e) => {
+    const newTitle = e.target.value;
+    setTitle(newTitle);
+    if (titleTimeoutRef.current) clearTimeout(titleTimeoutRef.current);
+    titleTimeoutRef.current = setTimeout(async () => {
+      if (onTitleChange) onTitleChange(noteId, newTitle);
+      if (noteId) {
+        try {
+          await updateNoteById(noteId, { title: newTitle });
+        } catch (err) {
+          console.error("Error al guardar título:", err);
+        }
+      }
+    }, 500);
+  };
+
+  if (!noteId) {
     return (
-      <div className="flex items-center justify-center h-screen text-gray-600">
-        <div className="text-center">
-          <p className="text-lg mb-2">Error al cargar el documento</p>
-          <p className="text-sm text-gray-400">{error}</p>
+      <div className="editor-empty">
+        <div className="editor-empty-text">
+          Selecciona una nota de la barra lateral o crea una nueva
         </div>
       </div>
     );
   }
 
+  if (error) {
+    return (
+      <div className="editor-empty">
+        <p>Error al cargar la nota</p>
+        <p className="editor-error-sub">{error}</p>
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen bg-white">
-      {/* Barra superior con información de guardado */}
-      <header className="sticky top-0 z-10 bg-white border-b border-gray-200">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-12">
-            <div className="flex items-center space-x-2">
-              {/* Placeholder para futuros controles */}
-              <span className="text-sm text-gray-400 font-medium">Notes</span>
-            </div>
-            <SavingIndicator isSaving={isSaving} lastSaved={lastSaved} />
-          </div>
+    <div className="editor-container">
+      <header className="editor-topbar">
+        <div className="editor-topbar-left">
+          <span className="editor-topbar-brand">Notes</span>
         </div>
+        <SavingIndicator isSaving={isSaving} lastSaved={lastSaved} />
       </header>
 
-      {/* Contenido del editor */}
-      <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="editor-main">
         {isLoading ? (
-          <div className="animate-pulse space-y-4">
-            <div className="h-6 bg-gray-200 rounded w-3/4"></div>
-            <div className="h-4 bg-gray-200 rounded w-full"></div>
-            <div className="h-4 bg-gray-200 rounded w-5/6"></div>
-            <div className="h-4 bg-gray-200 rounded w-4/6"></div>
+          <div className="editor-skeleton">
+            <div className="skeleton-line w-3/4 h-6" />
+            <div className="skeleton-line w-full h-4" />
+            <div className="skeleton-line w-5/6 h-4" />
+            <div className="skeleton-line w-4/6 h-4" />
           </div>
         ) : (
-          <div className="notion-editor-wrapper">
-            <BlockNoteView
-              editor={editor}
-              theme="light"
-              data-blocknote-version
-              className="notion-editor"
+          <>
+            <input
+              className="editor-title-input"
+              type="text"
+              value={title}
+              onChange={handleTitleChange}
+              placeholder="Sin título"
             />
-          </div>
+            <div className="notion-editor-wrapper">
+              <BlockNoteView
+                editor={editor}
+                theme="light"
+                className="notion-editor"
+              />
+            </div>
+          </>
         )}
       </main>
     </div>
