@@ -74,7 +74,7 @@ export const getNoteById = async (req, res) => {
 export const updateNoteById = async (req, res) => {
   try {
     const { id } = req.params;
-    const { content, title } = req.body;
+    const { content, title, emoji } = req.body;
     const updateFields = {};
     if (content !== undefined) {
       if (!Array.isArray(content)) {
@@ -83,6 +83,7 @@ export const updateNoteById = async (req, res) => {
       updateFields.content = content;
     }
     if (title !== undefined) updateFields.title = title;
+    if (emoji !== undefined) updateFields.emoji = emoji;
     const note = await Document.findByIdAndUpdate(
       id,
       updateFields,

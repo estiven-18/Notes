@@ -27,6 +27,11 @@ const documentSchema = new mongoose.Schema({
     ref: 'Collection',
     default: null
   },
+
+  emoji: {
+    type: String,
+    default: null
+  },
   
   metadata: {
     workspaceId: {

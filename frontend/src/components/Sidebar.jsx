@@ -17,7 +17,7 @@ const Sidebar = ({ activeNote, onSelectNote, onAddCollection }) => {
   const [expanded, setExpanded] = useState({});
   const [notesMap, setNotesMap] = useState({});
   const [showCollectionModal, setShowCollectionModal] = useState(false);
-  const [showNoteModal, setShowNoteModal] = useState(null);
+
   const [editingColId, setEditingColId] = useState(null);
   const [editingColName, setEditingColName] = useState("");
   const [editingNoteId, setEditingNoteId] = useState(null);
@@ -87,11 +87,9 @@ const Sidebar = ({ activeNote, onSelectNote, onAddCollection }) => {
     }
   };
 
-  const handleCreateNote = async (title) => {
-    const colId = showNoteModal;
+  const handleCreateNote = async (colId) => {
     try {
-      const note = await createNote(colId, title);
-      setShowNoteModal(null);
+      const note = await createNote(colId, 'Sin título');
       const notes = await getNotesByCollection(colId);
       setNotesMap((prev) => ({ ...prev, [colId]: notes }));
       onSelectNote(note);
@@ -212,7 +210,11 @@ const Sidebar = ({ activeNote, onSelectNote, onAddCollection }) => {
                 >
                   ▶
                 </span>
-                <span className="sidebar-collection-icon">📁</span>
+                <span className="sidebar-collection-icon">
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" width="16" height="16">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12.75V12A2.25 2.25 0 0 1 4.5 9.75h15A2.25 2.25 0 0 1 21.75 12v.75m-8.69-6.44-2.12-2.12a1.5 1.5 0 0 0-1.061-.44H4.5A2.25 2.25 0 0 0 2.25 6v12a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9a2.25 2.25 0 0 0-2.25-2.25h-5.379a1.5 1.5 0 0 1-1.06-.44Z" />
+                  </svg>
+                </span>
                 {editingColId === col._id ? (
                   <input
                     ref={editInputRef}
@@ -247,22 +249,45 @@ const Sidebar = ({ activeNote, onSelectNote, onAddCollection }) => {
                 <div className="sidebar-notes">
                   {(notesMap[col._id] || []).map((note) => {
                     const isActive = activeNoteId === note._id;
-                    const displayTitle = isActive
-                      ? activeNote.title
-                      : note.title;
+                    const rawTitle = isActive ? activeNote.title : note.title;
+                    const displayTitle = rawTitle || 'Sin título';
+                    const noteEmoji = isActive ? activeNote.emoji : note.emoji;
                     return (
                       <div
                         key={note._id}
                         className={`sidebar-note ${isActive ? "active" : ""}`}
-                        onClick={() =>
+                        onClick={() => {
+                          if (activeNote && activeNote._id !== note._id) {
+                            setNotesMap((prev) => {
+                              for (const cId of Object.keys(prev)) {
+                                const notes = prev[cId];
+                                const idx = notes.findIndex((n) => n._id === activeNote._id);
+                                if (idx !== -1) {
+                                  const updated = [...notes];
+                                  updated[idx] = { ...updated[idx], emoji: activeNote.emoji, title: activeNote.title };
+                                  return { ...prev, [cId]: updated };
+                                }
+                              }
+                              return prev;
+                            });
+                          }
                           onSelectNote({
                             _id: note._id,
-                            title: note.title,
+                            title: note.title || 'Sin título',
+                            emoji: note.emoji != null ? note.emoji : null,
                             collectionId: col._id,
-                          })
-                        }
+                          });
+                        }}
                       >
-                        <span className="sidebar-note-icon">📄</span>
+                        {noteEmoji ? (
+                          <span className="sidebar-note-icon">{noteEmoji}</span>
+                        ) : noteEmoji === null ? (
+                          <span className="sidebar-note-icon">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" width="14" height="14">
+                              <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
+                            </svg>
+                          </span>
+                        ) : null}
                         {editingNoteId === note._id ? (
                           <input
                             ref={editInputRef}
@@ -300,7 +325,7 @@ const Sidebar = ({ activeNote, onSelectNote, onAddCollection }) => {
                   })}
                   <button
                     className="sidebar-add-note-btn"
-                    onClick={() => setShowNoteModal(col._id)}
+                    onClick={() => handleCreateNote(col._id)}
                   >
                     <span className="sidebar-btn-icon-small">+</span>
                     Nueva nota
@@ -321,14 +346,7 @@ const Sidebar = ({ activeNote, onSelectNote, onAddCollection }) => {
         />
       )}
 
-      {showNoteModal && (
-        <CreateModal
-          title="Nueva nota"
-          placeholder="Título de la nota"
-          onSubmit={handleCreateNote}
-          onClose={() => setShowNoteModal(null)}
-        />
-      )}
+
     </aside>
   );
 };

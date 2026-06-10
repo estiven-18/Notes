@@ -5,17 +5,19 @@ import "@blocknote/mantine/style.css";
 import { getNoteById, updateNoteById } from "../services/api";
 import useAutosave from "../hooks/useAutosave";
 import SavingIndicator from "./SavingIndicator";
+import EmojiPicker from "./EmojiPicker";
 
-const NotionEditor = ({ noteId, onTitleChange }) => {
+const NotionEditor = ({ noteId, onTitleChange, onEmojiChange }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState(null);
   const [lastSaved, setLastSaved] = useState(null);
   const [title, setTitle] = useState("");
+  const [emoji, setEmoji] = useState(null);
   const titleTimeoutRef = useRef(null);
   const previousNoteId = useRef(null);
   const isSavingRef = useRef(false);
-  const isLoadedRef = useRef(false);
+  const titleInputRef = useRef(null);
 
   const editor = useCreateBlockNote();
 
@@ -44,6 +46,7 @@ const NotionEditor = ({ noteId, onTitleChange }) => {
       try {
         const note = await getNoteById(id);
         setTitle(note.title || "Sin título");
+        setEmoji(note.emoji || null);
         if (note.content && note.content.length > 0) {
           editor.replaceBlocks(editor.document, note.content);
         } else {
@@ -51,10 +54,8 @@ const NotionEditor = ({ noteId, onTitleChange }) => {
             { type: "paragraph", content: [] },
           ]);
         }
-        isLoadedRef.current = true;
       } catch (err) {
         setError(err.message);
-        isLoadedRef.current = false;
       } finally {
         setIsLoading(false);
       }
@@ -75,6 +76,12 @@ const NotionEditor = ({ noteId, onTitleChange }) => {
       loadNote(noteId);
     }
   }, [noteId, editor, saveCurrentNote, loadNote]);
+
+  useEffect(() => {
+    if (!isLoading && title === 'Sin título' && titleInputRef.current) {
+      titleInputRef.current.focus();
+    }
+  }, [noteId, isLoading, title]);
 
   const handleSave = useCallback(async () => {
     if (!editor || !noteId || isSavingRef.current) return;
@@ -99,15 +106,29 @@ const NotionEditor = ({ noteId, onTitleChange }) => {
     setTitle(newTitle);
     if (titleTimeoutRef.current) clearTimeout(titleTimeoutRef.current);
     titleTimeoutRef.current = setTimeout(async () => {
-      if (onTitleChange) onTitleChange(noteId, newTitle);
+      const finalTitle = newTitle.trim() || 'Sin título';
+      if (onTitleChange) onTitleChange(noteId, finalTitle);
       if (noteId) {
         try {
-          await updateNoteById(noteId, { title: newTitle });
+          await updateNoteById(noteId, { title: finalTitle });
+          setTitle(finalTitle);
         } catch (err) {
           console.error("Error al guardar título:", err);
         }
       }
     }, 500);
+  };
+
+  const handleEmojiSelect = async (newEmoji) => {
+    setEmoji(newEmoji);
+    if (onEmojiChange) onEmojiChange(noteId, newEmoji);
+    if (noteId) {
+      try {
+        await updateNoteById(noteId, { emoji: newEmoji });
+      } catch (err) {
+        console.error("Error al guardar emoji:", err);
+      }
+    }
   };
 
   if (!noteId) {
@@ -148,13 +169,17 @@ const NotionEditor = ({ noteId, onTitleChange }) => {
           </div>
         ) : (
           <>
-            <input
-              className="editor-title-input"
-              type="text"
-              value={title}
-              onChange={handleTitleChange}
-              placeholder="Sin título"
-            />
+            <div className="editor-title-area">
+              <EmojiPicker currentEmoji={emoji} onSelect={handleEmojiSelect} />
+              <input
+                ref={titleInputRef}
+                className="editor-title-input"
+                type="text"
+                value={title}
+                onChange={handleTitleChange}
+                placeholder="Sin título"
+              />
+            </div>
             <div className="notion-editor-wrapper">
               <BlockNoteView
                 editor={editor}

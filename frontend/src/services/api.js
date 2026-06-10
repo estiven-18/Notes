@@ -63,11 +63,11 @@ export const getNotesByCollection = async (collectionId) => {
   return data.data;
 };
 
-export const createNote = async (collectionId, title) => {
+export const createNote = async (collectionId, title, emoji = null) => {
   const response = await fetch(`${API_URL}/collections/${collectionId}/notes`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ title }),
+    body: JSON.stringify({ title, emoji }),
   });
   const data = await response.json();
   if (!data.success) throw new Error(data.message);
@@ -81,11 +81,11 @@ export const getNoteById = async (noteId) => {
   return data.data;
 };
 
-export const updateNoteById = async (noteId, { content, title }) => {
+export const updateNoteById = async (noteId, { content, title, emoji }) => {
   const response = await fetch(`${API_URL}/document/${noteId}`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ content, title }),
+    body: JSON.stringify({ content, title, emoji }),
   });
   const data = await response.json();
   if (!data.success) throw new Error(data.message);

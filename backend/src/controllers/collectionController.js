@@ -65,7 +65,7 @@ export const getNotesByCollection = async (req, res) => {
   try {
     const { id } = req.params;
     const notes = await Document.find({ collectionId: id })
-      .select("title createdAt updatedAt")
+      .select("title emoji createdAt updatedAt")
       .sort({ updatedAt: -1 });
     res.json({ success: true, data: notes });
   } catch (error) {
@@ -76,9 +76,10 @@ export const getNotesByCollection = async (req, res) => {
 export const createNote = async (req, res) => {
   try {
     const { id } = req.params;
-    const { title } = req.body;
+    const { title, emoji } = req.body;
     const note = await Document.create({
       title: title || "Nueva nota",
+      emoji: emoji || null,
       collectionId: id,
       content: [{ type: "paragraph", content: [], id: "block-" + Date.now() }],
     });
