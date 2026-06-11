@@ -92,7 +92,7 @@ const Sidebar = ({ activeNote, onSelectNote, onAddCollection }) => {
       const note = await createNote(colId, 'Sin título');
       const notes = await getNotesByCollection(colId);
       setNotesMap((prev) => ({ ...prev, [colId]: notes }));
-      onSelectNote(note);
+      onSelectNote({ ...note });
     } catch (err) {
       alert("Error al crear nota: " + err.message);
     }
@@ -275,6 +275,7 @@ const Sidebar = ({ activeNote, onSelectNote, onAddCollection }) => {
                             _id: note._id,
                             title: note.title || 'Sin título',
                             emoji: note.emoji != null ? note.emoji : null,
+                            updatedAt: note.updatedAt,
                             collectionId: col._id,
                           });
                         }}

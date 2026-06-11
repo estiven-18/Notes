@@ -9,7 +9,6 @@ import EmojiPicker from "./EmojiPicker";
 
 const NotionEditor = ({ noteId, onTitleChange, onEmojiChange }) => {
   const [isLoading, setIsLoading] = useState(true);
-  const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState(null);
   const [lastSaved, setLastSaved] = useState(null);
   const [title, setTitle] = useState("");
@@ -18,22 +17,23 @@ const NotionEditor = ({ noteId, onTitleChange, onEmojiChange }) => {
   const previousNoteId = useRef(null);
   const isSavingRef = useRef(false);
   const titleInputRef = useRef(null);
+  const loadedContentRef = useRef(null);
 
   const editor = useCreateBlockNote();
 
   const saveCurrentNote = useCallback(async () => {
     const id = previousNoteId.current;
     if (!editor || !id || isSavingRef.current) return;
+    const contentStr = JSON.stringify(editor.document);
+    if (contentStr === loadedContentRef.current) return;
     isSavingRef.current = true;
     try {
-      setIsSaving(true);
-      const content = editor.document;
-      await updateNoteById(id, { content });
-      setLastSaved(new Date().toLocaleTimeString());
+      await updateNoteById(id, { content: editor.document });
+      loadedContentRef.current = contentStr;
+      setLastSaved(Date.now());
     } catch (err) {
       console.error("Error al guardar:", err);
     } finally {
-      setIsSaving(false);
       isSavingRef.current = false;
     }
   }, [editor]);
@@ -45,8 +45,9 @@ const NotionEditor = ({ noteId, onTitleChange, onEmojiChange }) => {
       setError(null);
       try {
         const note = await getNoteById(id);
-        setTitle(note.title || "Sin título");
+        setTitle(note.title === "Sin título" ? "" : note.title);
         setEmoji(note.emoji || null);
+        setLastSaved(new Date(note.updatedAt).getTime());
         if (note.content && note.content.length > 0) {
           editor.replaceBlocks(editor.document, note.content);
         } else {
@@ -54,6 +55,7 @@ const NotionEditor = ({ noteId, onTitleChange, onEmojiChange }) => {
             { type: "paragraph", content: [] },
           ]);
         }
+        loadedContentRef.current = JSON.stringify(editor.document);
       } catch (err) {
         setError(err.message);
       } finally {
@@ -78,28 +80,28 @@ const NotionEditor = ({ noteId, onTitleChange, onEmojiChange }) => {
   }, [noteId, editor, saveCurrentNote, loadNote]);
 
   useEffect(() => {
-    if (!isLoading && title === 'Sin título' && titleInputRef.current) {
+    if (!isLoading && (!title || title === 'Sin título') && titleInputRef.current) {
       titleInputRef.current.focus();
     }
   }, [noteId, isLoading, title]);
 
   const handleSave = useCallback(async () => {
     if (!editor || !noteId || isSavingRef.current) return;
+    const contentStr = JSON.stringify(editor.document);
+    if (contentStr === loadedContentRef.current) return;
     isSavingRef.current = true;
     try {
-      setIsSaving(true);
-      const content = editor.document;
-      await updateNoteById(noteId, { content });
-      setLastSaved(new Date().toLocaleTimeString());
+      await updateNoteById(noteId, { content: editor.document });
+      loadedContentRef.current = contentStr;
+      setLastSaved(Date.now());
     } catch (err) {
       console.error("Error al guardar:", err);
     } finally {
-      setIsSaving(false);
       isSavingRef.current = false;
     }
   }, [editor, noteId]);
 
-  useAutosave(handleSave, [editor?.document], 2000);
+  useAutosave(handleSave, [JSON.stringify(editor?.document)], 2000);
 
   const handleTitleChange = (e) => {
     const newTitle = e.target.value;
@@ -111,7 +113,8 @@ const NotionEditor = ({ noteId, onTitleChange, onEmojiChange }) => {
       if (noteId) {
         try {
           await updateNoteById(noteId, { title: finalTitle });
-          setTitle(finalTitle);
+          setTitle(finalTitle === "Sin título" ? "" : finalTitle);
+          setLastSaved(Date.now());
         } catch (err) {
           console.error("Error al guardar título:", err);
         }
@@ -125,6 +128,7 @@ const NotionEditor = ({ noteId, onTitleChange, onEmojiChange }) => {
     if (noteId) {
       try {
         await updateNoteById(noteId, { emoji: newEmoji });
+        setLastSaved(Date.now());
       } catch (err) {
         console.error("Error al guardar emoji:", err);
       }
@@ -156,7 +160,7 @@ const NotionEditor = ({ noteId, onTitleChange, onEmojiChange }) => {
         <div className="editor-topbar-left">
           <span className="editor-topbar-brand">Notes</span>
         </div>
-        <SavingIndicator isSaving={isSaving} lastSaved={lastSaved} />
+        <SavingIndicator lastSaved={lastSaved} />
       </header>
 
       <main className="editor-main">
