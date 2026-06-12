@@ -5,16 +5,20 @@ import {
   updateCollection,
   deleteCollection,
   getNotesByCollection,
-  createNote
+  createNote,
+  toggleCollectionFavorite,
+  getFavoriteCollections,
 } from '../controllers/collectionController.js';
 
 const router = Router();
 
+router.get('/favorites', getFavoriteCollections);
 router.get('/', getCollections);
 router.post('/', createCollection);
 router.put('/:id', updateCollection);
 router.delete('/:id', deleteCollection);
 router.get('/:id/notes', getNotesByCollection);
 router.post('/:id/notes', createNote);
+router.post('/:id/favorite', toggleCollectionFavorite);
 
 export default router;

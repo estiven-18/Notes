@@ -81,11 +81,11 @@ export const getNoteById = async (noteId) => {
   return data.data;
 };
 
-export const updateNoteById = async (noteId, { content, title, emoji }) => {
+export const updateNoteById = async (noteId, { content, title, emoji, favorite }) => {
   const response = await fetch(`${API_URL}/document/${noteId}`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ content, title, emoji }),
+    body: JSON.stringify({ content, title, emoji, favorite }),
   });
   const data = await response.json();
   if (!data.success) throw new Error(data.message);
@@ -99,4 +99,36 @@ export const deleteNote = async (noteId) => {
   const data = await response.json();
   if (!data.success) throw new Error(data.message);
   return data;
+};
+
+export const getFavorites = async () => {
+  const response = await fetch(`${API_URL}/document/favorites/all`);
+  const data = await response.json();
+  if (!data.success) throw new Error(data.message);
+  return data.data;
+};
+
+export const toggleFavorite = async (noteId) => {
+  const response = await fetch(`${API_URL}/document/${noteId}/favorite`, {
+    method: "POST",
+  });
+  const data = await response.json();
+  if (!data.success) throw new Error(data.message);
+  return data.data;
+};
+
+export const getFavoriteCollections = async () => {
+  const response = await fetch(`${API_URL}/collections/favorites`);
+  const data = await response.json();
+  if (!data.success) throw new Error(data.message);
+  return data.data;
+};
+
+export const toggleCollectionFavorite = async (collectionId) => {
+  const response = await fetch(`${API_URL}/collections/${collectionId}/favorite`, {
+    method: "POST",
+  });
+  const data = await response.json();
+  if (!data.success) throw new Error(data.message);
+  return data.data;
 };

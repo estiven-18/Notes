@@ -1,4 +1,5 @@
 import Document from '../models/Document.js';
+import Collection from '../models/Collection.js';
 
 export const getDocument = async (req, res) => {
   try {
@@ -74,7 +75,7 @@ export const getNoteById = async (req, res) => {
 export const updateNoteById = async (req, res) => {
   try {
     const { id } = req.params;
-    const { content, title, emoji } = req.body;
+    const { content, title, emoji, favorite } = req.body;
     const updateFields = {};
     if (content !== undefined) {
       if (!Array.isArray(content)) {
@@ -84,6 +85,7 @@ export const updateNoteById = async (req, res) => {
     }
     if (title !== undefined) updateFields.title = title;
     if (emoji !== undefined) updateFields.emoji = emoji;
+    if (favorite !== undefined) updateFields['metadata.isFavorite'] = favorite;
     const note = await Document.findByIdAndUpdate(
       id,
       updateFields,
@@ -93,6 +95,37 @@ export const updateNoteById = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Nota no encontrada' });
     }
     res.json({ success: true, data: note });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const toggleFavorite = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const note = await Document.findById(id);
+    if (!note) {
+      return res.status(404).json({ success: false, message: 'Nota no encontrada' });
+    }
+    note.metadata.isFavorite = !note.metadata.isFavorite;
+    await note.save();
+    res.json({ success: true, data: note });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const getFavorites = async (req, res) => {
+  try {
+    const favCollections = await Collection.find({ isFavorite: true }).select('_id');
+    const favColIds = favCollections.map((c) => c._id);
+    const notes = await Document.find({
+      'metadata.isFavorite': true,
+      collectionId: { $nin: favColIds },
+    })
+      .select('title emoji collectionId updatedAt')
+      .sort({ updatedAt: -1 });
+    res.json({ success: true, data: notes });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
