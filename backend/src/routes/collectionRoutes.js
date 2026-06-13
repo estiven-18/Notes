@@ -9,8 +9,11 @@ import {
   toggleCollectionFavorite,
   getFavoriteCollections,
 } from '../controllers/collectionController.js';
+import { auth } from '../middleware/auth.js';
 
 const router = Router();
+
+router.use(auth);
 
 router.get('/favorites', getFavoriteCollections);
 router.get('/', getCollections);

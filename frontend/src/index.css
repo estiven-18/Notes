@@ -879,6 +879,115 @@ body {
   outline-offset: 2px;
 }
 
+/* AUTH PAGES */
+.auth-container {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-gray-50);
+}
+
+.auth-card {
+  background: white;
+  border: 1px solid var(--color-gray-200);
+  border-radius: 8px;
+  padding: 32px;
+  width: 100%;
+  max-width: 400px;
+  margin: 16px;
+}
+
+.auth-card h1 {
+  margin: 0 0 8px;
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--color-gray-900);
+}
+
+.auth-subtitle {
+  margin: 0 0 24px;
+  font-size: 14px;
+  color: var(--color-gray-500);
+}
+
+.auth-error {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #b91c1c;
+  font-size: 13px;
+  padding: 8px 12px;
+  border-radius: 6px;
+  margin-bottom: 16px;
+}
+
+.auth-field {
+  margin-bottom: 16px;
+}
+
+.auth-field label {
+  display: block;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-gray-700);
+  margin-bottom: 4px;
+}
+
+.auth-field input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--color-gray-200);
+  border-radius: 6px;
+  font-size: 14px;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.15s;
+  box-sizing: border-box;
+}
+
+.auth-field input:focus {
+  border-color: var(--color-gray-400);
+}
+
+.auth-submit {
+  width: 100%;
+  padding: 10px;
+  background: var(--color-gray-800);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.auth-submit:hover {
+  background: var(--color-gray-900);
+}
+
+.auth-submit:disabled {
+  background: var(--color-gray-300);
+  cursor: not-allowed;
+}
+
+.auth-footer {
+  margin-top: 16px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--color-gray-500);
+}
+
+.auth-footer a {
+  color: var(--color-gray-700);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.auth-footer a:hover {
+  text-decoration: underline;
+}
+
 @media (max-width: 768px) {
   .sidebar {
     width: 200px;

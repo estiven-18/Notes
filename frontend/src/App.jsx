@@ -1,9 +1,15 @@
 import { useState, useCallback, useEffect } from 'react';
+import { useSelector, useDispatch } from 'react-redux';
+import { Routes, Route, Navigate } from 'react-router-dom';
 import Sidebar from './components/Sidebar';
 import NotionEditor from './components/NotionEditor';
+import Login from './pages/Login';
+import Register from './pages/Register';
+import ProtectedRoute from './components/ProtectedRoute';
+import { verifyToken } from './store/authSlice';
 import { getNoteById } from './services/api';
 
-function App() {
+function Home() {
   const [activeNote, setActiveNote] = useState(() => {
     try {
       return JSON.parse(localStorage.getItem('activeNote'));
@@ -72,6 +78,29 @@ function App() {
         onFavoriteToggle={handleFavoriteToggle}
       />
     </div>
+  );
+}
+
+function App() {
+  const dispatch = useDispatch();
+  const { token } = useSelector((state) => state.auth);
+
+  useEffect(() => {
+    if (token) {
+      dispatch(verifyToken());
+    }
+  }, [dispatch, token]);
+
+  return (
+    <Routes>
+      <Route path="/login" element={token ? <Navigate to="/" replace /> : <Login />} />
+      <Route path="/register" element={token ? <Navigate to="/" replace /> : <Register />} />
+      <Route path="/" element={
+        <ProtectedRoute>
+          <Home />
+        </ProtectedRoute>
+      } />
+    </Routes>
   );
 }
 

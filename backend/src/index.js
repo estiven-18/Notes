@@ -4,6 +4,7 @@ import dotenv from "dotenv";
 import connectDB from "./config/database.js";
 import documentRoutes from "./routes/documentRoutes.js";
 import collectionRoutes from "./routes/collectionRoutes.js";
+import authRoutes from "./routes/authRoutes.js";
 
 // Cargar variables de entorno
 dotenv.config();
@@ -28,6 +29,7 @@ app.use(express.urlencoded({ extended: true }));
  */
 app.use("/api/document", documentRoutes);
 app.use("/api/collections", collectionRoutes);
+app.use("/api/auth", authRoutes);
 
 /**
  * Health check endpoint

@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import { useDispatch } from "react-redux";
 import {
   getCollections,
   getNotesByCollection,
@@ -13,9 +14,11 @@ import {
   getFavoriteCollections,
   toggleCollectionFavorite,
 } from "../services/api";
+import { logout } from "../store/authSlice";
 import CreateModal from "./CreateModal";
 
 const Sidebar = ({ activeNote, onSelectNote, onAddCollection, favoriteRefreshKey }) => {
+  const dispatch = useDispatch();
   const activeNoteId = activeNote?._id;
   const [collections, setCollections] = useState([]);
   const [favorites, setFavorites] = useState([]);
@@ -266,6 +269,13 @@ const Sidebar = ({ activeNote, onSelectNote, onAddCollection, favoriteRefreshKey
     <aside className="sidebar">
       <div className="sidebar-header">
         <span className="sidebar-title">Notes</span>
+        <button
+          onClick={() => dispatch(logout())}
+          style={{ marginLeft: 'auto', background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', fontSize: 12, padding: '4px 8px' }}
+          title="Cerrar sesión"
+        >
+          Salir
+        </button>
       </div>
 
       <div className="sidebar-nav-header" onClick={() => setCollectionsOpen((o) => !o)}>

@@ -3,7 +3,7 @@ import Document from "../models/Document.js";
 
 export const getCollections = async (req, res) => {
   try {
-    const collections = await Collection.find().sort({ updatedAt: -1 });
+    const collections = await Collection.find({ user: req.user._id }).sort({ updatedAt: -1 });
     res.json({ success: true, data: collections });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -18,7 +18,7 @@ export const createCollection = async (req, res) => {
         .status(400)
         .json({ success: false, message: "El nombre es requerido" });
     }
-    const collection = await Collection.create({ name: name.trim() });
+    const collection = await Collection.create({ user: req.user._id, name: name.trim() });
     res.status(201).json({ success: true, data: collection });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -34,8 +34,8 @@ export const updateCollection = async (req, res) => {
         .status(400)
         .json({ success: false, message: "El nombre es requerido" });
     }
-    const collection = await Collection.findByIdAndUpdate(
-      id,
+    const collection = await Collection.findOneAndUpdate(
+      { _id: id, user: req.user._id },
       { name: name.trim() },
       { new: true, runValidators: true },
     );
@@ -53,8 +53,11 @@ export const updateCollection = async (req, res) => {
 export const deleteCollection = async (req, res) => {
   try {
     const { id } = req.params;
-    await Document.deleteMany({ collectionId: id });
-    await Collection.findByIdAndDelete(id);
+    const collection = await Collection.findOneAndDelete({ _id: id, user: req.user._id });
+    if (!collection) {
+      return res.status(404).json({ success: false, message: "Colección no encontrada" });
+    }
+    await Document.deleteMany({ collectionId: id, user: req.user._id });
     res.json({ success: true, message: "Colección eliminada" });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -64,7 +67,7 @@ export const deleteCollection = async (req, res) => {
 export const getNotesByCollection = async (req, res) => {
   try {
     const { id } = req.params;
-    const notes = await Document.find({ collectionId: id })
+    const notes = await Document.find({ collectionId: id, user: req.user._id })
       .select("title emoji createdAt updatedAt metadata.isFavorite")
       .sort({ updatedAt: -1 });
     res.json({ success: true, data: notes });
@@ -76,14 +79,14 @@ export const getNotesByCollection = async (req, res) => {
 export const toggleCollectionFavorite = async (req, res) => {
   try {
     const { id } = req.params;
-    const collection = await Collection.findById(id);
+    const collection = await Collection.findOne({ _id: id, user: req.user._id });
     if (!collection) {
       return res.status(404).json({ success: false, message: "Colección no encontrada" });
     }
     collection.isFavorite = !collection.isFavorite;
     await collection.save();
     await Document.updateMany(
-      { collectionId: id },
+      { collectionId: id, user: req.user._id },
       { $set: { "metadata.isFavorite": collection.isFavorite } },
     );
     res.json({ success: true, data: collection });
@@ -94,10 +97,10 @@ export const toggleCollectionFavorite = async (req, res) => {
 
 export const getFavoriteCollections = async (req, res) => {
   try {
-    const collections = await Collection.find({ isFavorite: true }).sort({ updatedAt: -1 });
+    const collections = await Collection.find({ user: req.user._id, isFavorite: true }).sort({ updatedAt: -1 });
     const result = await Promise.all(
       collections.map(async (col) => {
-        const notes = await Document.find({ collectionId: col._id })
+        const notes = await Document.find({ collectionId: col._id, user: req.user._id })
           .select("title emoji createdAt updatedAt metadata.isFavorite")
           .sort({ updatedAt: -1 });
         return { ...col.toObject(), notes };
@@ -113,9 +116,13 @@ export const createNote = async (req, res) => {
   try {
     const { id } = req.params;
     const { title, emoji } = req.body;
-    const collection = await Collection.findById(id).select('isFavorite');
-    const isFavorite = collection?.isFavorite || false;
+    const collection = await Collection.findOne({ _id: id, user: req.user._id }).select('isFavorite');
+    if (!collection) {
+      return res.status(404).json({ success: false, message: "Colección no encontrada" });
+    }
+    const isFavorite = collection.isFavorite || false;
     const note = await Document.create({
+      user: req.user._id,
       title: title || "Nueva nota",
       emoji: emoji || null,
       collectionId: id,

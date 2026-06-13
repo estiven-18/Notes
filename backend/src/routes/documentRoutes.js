@@ -9,8 +9,11 @@ import {
   toggleFavorite,
   getFavorites
 } from '../controllers/documentController.js';
+import { auth } from '../middleware/auth.js';
 
 const router = Router();
+
+router.use(auth);
 
 router.get('/', getDocument);
 router.put('/', updateDocument);

@@ -3,9 +3,10 @@ import Collection from '../models/Collection.js';
 
 export const getDocument = async (req, res) => {
   try {
-    let document = await Document.findOne().sort({ createdAt: 1 });
+    let document = await Document.findOne({ user: req.user._id }).sort({ createdAt: 1 });
     if (!document) {
       document = await Document.create({
+        user: req.user._id,
         title: 'Mi Primer Documento',
         content: [{ type: 'paragraph', content: [], id: 'block-' + Date.now() }]
       });
@@ -23,7 +24,7 @@ export const updateDocument = async (req, res) => {
       return res.status(400).json({ success: false, message: 'El contenido debe ser un array' });
     }
     const document = await Document.findOneAndUpdate(
-      {},
+      { user: req.user._id },
       { content, ...(title && { title }) },
       { new: true, runValidators: true, upsert: true }
     );
@@ -37,6 +38,7 @@ export const createDocument = async (req, res) => {
   try {
     const { title, content } = req.body;
     const document = await Document.create({
+      user: req.user._id,
       title: title || 'Nuevo Documento',
       content: content || [{ type: 'paragraph', content: [], id: 'block-' + Date.now() }]
     });
@@ -49,7 +51,7 @@ export const createDocument = async (req, res) => {
 export const deleteDocument = async (req, res) => {
   try {
     const { id } = req.params;
-    const document = await Document.findByIdAndDelete(id);
+    const document = await Document.findOneAndDelete({ _id: id, user: req.user._id });
     if (!document) {
       return res.status(404).json({ success: false, message: 'Documento no encontrado' });
     }
@@ -62,7 +64,7 @@ export const deleteDocument = async (req, res) => {
 export const getNoteById = async (req, res) => {
   try {
     const { id } = req.params;
-    const note = await Document.findById(id);
+    const note = await Document.findOne({ _id: id, user: req.user._id });
     if (!note) {
       return res.status(404).json({ success: false, message: 'Nota no encontrada' });
     }
@@ -86,8 +88,8 @@ export const updateNoteById = async (req, res) => {
     if (title !== undefined) updateFields.title = title;
     if (emoji !== undefined) updateFields.emoji = emoji;
     if (favorite !== undefined) updateFields['metadata.isFavorite'] = favorite;
-    const note = await Document.findByIdAndUpdate(
-      id,
+    const note = await Document.findOneAndUpdate(
+      { _id: id, user: req.user._id },
       updateFields,
       { new: true, runValidators: true }
     );
@@ -103,7 +105,7 @@ export const updateNoteById = async (req, res) => {
 export const toggleFavorite = async (req, res) => {
   try {
     const { id } = req.params;
-    const note = await Document.findById(id);
+    const note = await Document.findOne({ _id: id, user: req.user._id });
     if (!note) {
       return res.status(404).json({ success: false, message: 'Nota no encontrada' });
     }
@@ -117,9 +119,10 @@ export const toggleFavorite = async (req, res) => {
 
 export const getFavorites = async (req, res) => {
   try {
-    const favCollections = await Collection.find({ isFavorite: true }).select('_id');
+    const favCollections = await Collection.find({ user: req.user._id, isFavorite: true }).select('_id');
     const favColIds = favCollections.map((c) => c._id);
     const notes = await Document.find({
+      user: req.user._id,
       'metadata.isFavorite': true,
       collectionId: { $nin: favColIds },
     })
