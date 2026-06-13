@@ -5,6 +5,7 @@ import Sidebar from './components/Sidebar';
 import NotionEditor from './components/NotionEditor';
 import Login from './pages/Login';
 import Register from './pages/Register';
+import Profile from './pages/Profile';
 import ProtectedRoute from './components/ProtectedRoute';
 import { verifyToken } from './store/authSlice';
 import { getNoteById } from './services/api';
@@ -95,6 +96,11 @@ function App() {
     <Routes>
       <Route path="/login" element={token ? <Navigate to="/" replace /> : <Login />} />
       <Route path="/register" element={token ? <Navigate to="/" replace /> : <Register />} />
+      <Route path="/profile" element={
+        <ProtectedRoute>
+          <Profile />
+        </ProtectedRoute>
+      } />
       <Route path="/" element={
         <ProtectedRoute>
           <Home />

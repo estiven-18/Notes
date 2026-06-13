@@ -68,6 +68,50 @@ export const login = async (req, res) => {
   }
 };
 
+export const updateProfile = async (req, res) => {
+  try {
+    const { name, email, password, currentPassword } = req.body;
+
+    if (!name || !email) {
+      return res.status(400).json({ success: false, message: 'Nombre y email son requeridos' });
+    }
+
+    const existing = await User.findOne({ email: email.toLowerCase(), _id: { $ne: req.user._id } });
+    if (existing) {
+      return res.status(409).json({ success: false, message: 'El email ya está en uso' });
+    }
+
+    const updateData = { name, email: email.toLowerCase() };
+
+    if (password) {
+      if (password.length < 6) {
+        return res.status(400).json({ success: false, message: 'La contraseña debe tener al menos 6 caracteres' });
+      }
+      updateData.password = password;
+    }
+
+    const updated = await User.findByIdAndUpdate(
+      req.user._id,
+      updateData,
+      { new: true, runValidators: true }
+    ).select('-password');
+
+    if (!updated) {
+      return res.status(404).json({ success: false, message: 'Usuario no encontrado' });
+    }
+
+    res.json({
+      success: true,
+      data: { user: { id: updated._id, name: updated.name, email: updated.email } }
+    });
+  } catch (error) {
+    if (error.code === 11000) {
+      return res.status(409).json({ success: false, message: 'El email ya está en uso' });
+    }
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 export const verify = async (req, res) => {
   try {
     const user = await User.findById(req.user._id).select('-password');

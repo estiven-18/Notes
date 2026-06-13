@@ -177,6 +177,17 @@ export const verifyAuth = async () => {
   return data.data;
 };
 
+export const updateProfile = async ({ name, email, password, currentPassword }) => {
+  const response = await fetch(`${API_URL}/auth/profile`, {
+    method: "PUT",
+    headers: getAuthHeaders(),
+    body: JSON.stringify({ name, email }),
+  });
+  const data = await response.json();
+  if (!data.success) throw new Error(data.message);
+  return data.data;
+};
+
 export const toggleCollectionFavorite = async (collectionId) => {
   const response = await fetch(`${API_URL}/collections/${collectionId}/favorite`, {
     method: "POST",

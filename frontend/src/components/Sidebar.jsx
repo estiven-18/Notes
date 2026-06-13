@@ -15,10 +15,12 @@ import {
   toggleCollectionFavorite,
 } from "../services/api";
 import { logout } from "../store/authSlice";
+import { useNavigate } from "react-router-dom";
 import CreateModal from "./CreateModal";
 
 const Sidebar = ({ activeNote, onSelectNote, onAddCollection, favoriteRefreshKey }) => {
   const dispatch = useDispatch();
+  const navigate = useNavigate();
   const activeNoteId = activeNote?._id;
   const [collections, setCollections] = useState([]);
   const [favorites, setFavorites] = useState([]);
@@ -270,8 +272,15 @@ const Sidebar = ({ activeNote, onSelectNote, onAddCollection, favoriteRefreshKey
       <div className="sidebar-header">
         <span className="sidebar-title">Notes</span>
         <button
+          onClick={() => navigate('/profile')}
+          style={{ marginLeft: 'auto', background: 'none', border: 'none', color: 'var(--color-gray-500)', cursor: 'pointer', fontSize: 12, padding: '4px 8px' }}
+          title="Editar perfil"
+        >
+          Perfil
+        </button>
+        <button
           onClick={() => dispatch(logout())}
-          style={{ marginLeft: 'auto', background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', fontSize: 12, padding: '4px 8px' }}
+          style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', fontSize: 12, padding: '4px 8px' }}
           title="Cerrar sesión"
         >
           Salir

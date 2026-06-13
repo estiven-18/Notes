@@ -35,6 +35,16 @@ export const loginUser = createAsyncThunk('auth/login', async ({ email, password
   }
 });
 
+export const updateUserProfile = createAsyncThunk('auth/updateProfile', async ({ name, email }, { rejectWithValue }) => {
+  try {
+    const data = await api.updateProfile({ name, email });
+    localStorage.setItem(USER_KEY, JSON.stringify(data.user));
+    return data;
+  } catch (error) {
+    return rejectWithValue(error.message);
+  }
+});
+
 export const verifyToken = createAsyncThunk('auth/verify', async (_, { rejectWithValue }) => {
   try {
     const data = await api.verifyAuth();
@@ -87,6 +97,15 @@ const authSlice = createSlice({
         state.user = action.payload.user;
       })
       .addCase(loginUser.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+      })
+      .addCase(updateUserProfile.pending, (state) => { state.loading = true; state.error = null; })
+      .addCase(updateUserProfile.fulfilled, (state, action) => {
+        state.loading = false;
+        state.user = action.payload.user;
+      })
+      .addCase(updateUserProfile.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
       })
