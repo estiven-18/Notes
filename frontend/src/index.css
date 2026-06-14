@@ -234,19 +234,6 @@ body {
   font-weight: 500;
 }
 
-.sidebar-collection-rename {
-  flex: 1;
-  border: 1px solid var(--color-gray-300);
-  border-radius: 3px;
-  padding: 1px 4px;
-  font-size: 13px;
-  font-weight: 500;
-  font-family: inherit;
-  outline: none;
-  background: white;
-  min-width: 0;
-}
-
 .sidebar-collection-delete {
   opacity: 0;
   border: none;
@@ -326,19 +313,6 @@ body {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.sidebar-note-rename {
-  flex: 1;
-  border: 1px solid var(--color-gray-300);
-  border-radius: 3px;
-  padding: 1px 4px;
-  font-size: 13px;
-  font-weight: 400;
-  font-family: inherit;
-  outline: none;
-  background: white;
-  min-width: 0;
 }
 
 .sidebar-note-delete {

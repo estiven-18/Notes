@@ -9,7 +9,7 @@ const loadState = () => {
     const token = localStorage.getItem(TOKEN_KEY);
     const user = JSON.parse(localStorage.getItem(USER_KEY));
     if (token && user) return { token, user, loading: false, error: null };
-  } catch {}
+  } catch {/**/}
   return { token: null, user: null, loading: false, error: null };
 };
 

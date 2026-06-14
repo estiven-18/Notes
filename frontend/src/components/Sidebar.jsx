@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useDispatch } from "react-redux";
 import {
   getCollections,
@@ -6,9 +6,7 @@ import {
   createCollection,
   createNote,
   deleteCollection,
-  renameCollection,
   deleteNote,
-  updateNoteById,
   getFavorites,
   toggleFavorite,
   getFavoriteCollections,
@@ -42,11 +40,6 @@ const Sidebar = ({ activeNote, onSelectNote, onAddCollection, favoriteRefreshKey
   const [collectionsOpen, setCollectionsOpen] = useState(true);
   const [expandedFavCols, setExpandedFavCols] = useState({});
 
-  const [editingColId, setEditingColId] = useState(null);
-  const [editingColName, setEditingColName] = useState("");
-  const [editingNoteId, setEditingNoteId] = useState(null);
-  const [editingNoteTitle, setEditingNoteTitle] = useState("");
-  const editInputRef = useRef(null);
   const [loading, setLoading] = useState(true);
 
   const loadCollections = useCallback(async () => {
@@ -165,62 +158,6 @@ const Sidebar = ({ activeNote, onSelectNote, onAddCollection, favoriteRefreshKey
     }
   };
 
-  const startRename = (e, col) => {
-    e.stopPropagation();
-    setEditingColId(col._id);
-    setEditingColName(col.name);
-    setTimeout(() => editInputRef.current?.focus(), 0);
-  };
-
-  const submitRename = async () => {
-    const id = editingColId;
-    if (!id) return;
-    if (
-      editingColName.trim() &&
-      editingColName.trim() !== collections.find((c) => c._id === id)?.name
-    ) {
-      try {
-        await renameCollection(id, editingColName.trim());
-        await refreshCollections();
-      } catch (err) {
-        alert("Error al renombrar: " + err.message);
-      }
-    }
-    setEditingColId(null);
-  };
-
-  const startNoteRename = (e, note) => {
-    e.stopPropagation();
-    setEditingNoteId(note._id);
-    const currentTitle = activeNoteId === note._id ? activeNote.title : note.title;
-    setEditingNoteTitle(currentTitle);
-    setTimeout(() => editInputRef.current?.focus(), 0);
-  };
-
-  const submitNoteRename = async () => {
-    const id = editingNoteId;
-    if (!id) return;
-    const trimmed = editingNoteTitle.trim();
-    if (trimmed) {
-      try {
-        await updateNoteById(id, { title: trimmed });
-        if (activeNoteId === id) {
-          onSelectNote((prev) => ({ ...prev, title: trimmed }));
-        }
-        for (const colId in notesMap) {
-          if (notesMap[colId].some((n) => n._id === id)) {
-            const notes = await getNotesByCollection(colId);
-            setNotesMap((prev) => ({ ...prev, [colId]: notes }));
-            break;
-          }
-        }
-      } catch (err) {
-        alert("Error al renombrar: " + err.message);
-      }
-    }
-    setEditingNoteId(null);
-  };
-
   const handleDeleteNote = async (e, noteId, colId) => {
     e.stopPropagation();
     if (!confirm("Eliminar esta nota?")) return;
@@ -293,7 +230,7 @@ const Sidebar = ({ activeNote, onSelectNote, onAddCollection, favoriteRefreshKey
             <path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
           </svg>
         </span>
-        <span className="sidebar-nav-title">Publicas</span>
+        <span className="sidebar-nav-title">Recientes</span>
         <button
           className="sidebar-nav-add-btn"
           onClick={(e) => { e.stopPropagation(); setShowCollectionModal(true); }}
@@ -328,27 +265,11 @@ const Sidebar = ({ activeNote, onSelectNote, onAddCollection, favoriteRefreshKey
                     <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 12.75V12A2.25 2.25 0 0 1 4.5 9.75h15A2.25 2.25 0 0 1 21.75 12v.75m-8.69-6.44-2.12-2.12a1.5 1.5 0 0 0-1.061-.44H4.5A2.25 2.25 0 0 0 2.25 6v12a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9a2.25 2.25 0 0 0-2.25-2.25h-5.379a1.5 1.5 0 0 1-1.06-.44Z" />
                   </svg>
                 </span>
-                {editingColId === col._id ? (
-                  <input
-                    ref={editInputRef}
-                    className="sidebar-collection-rename"
-                    value={editingColName}
-                    onChange={(e) => setEditingColName(e.target.value)}
-                    onBlur={submitRename}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") submitRename();
-                      if (e.key === "Escape") setEditingColId(null);
-                    }}
-                    onClick={(e) => e.stopPropagation()}
-                  />
-                ) : (
-                  <span
-                    className="sidebar-collection-name"
-                    onDoubleClick={(e) => startRename(e, col)}
-                  >
-                    {col.name}
-                  </span>
-                )}
+                <span
+                  className="sidebar-collection-name"
+                >
+                  {col.name}
+                </span>
                 <button
                   className={`sidebar-collection-star ${col.isFavorite ? "favorited" : ""}`}
                   onClick={(e) => handleToggleCollectionFavorite(e, col._id)}
@@ -411,29 +332,11 @@ const Sidebar = ({ activeNote, onSelectNote, onAddCollection, favoriteRefreshKey
                             </svg>
                           </span>
                         ) : null}
-                        {editingNoteId === note._id ? (
-                          <input
-                            ref={editInputRef}
-                            className="sidebar-note-rename"
-                            value={editingNoteTitle}
-                            onChange={(e) =>
-                              setEditingNoteTitle(e.target.value)
-                            }
-                            onBlur={submitNoteRename}
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter") submitNoteRename();
-                              if (e.key === "Escape") setEditingNoteId(null);
-                            }}
-                            onClick={(e) => e.stopPropagation()}
-                          />
-                        ) : (
-                          <span
-                            className="sidebar-note-title"
-                            onDoubleClick={(e) => startNoteRename(e, note)}
-                          >
-                            {displayTitle}
-                          </span>
-                        )}
+                        <span
+                          className="sidebar-note-title"
+                        >
+                          {displayTitle}
+                        </span>
                         <button
                           className={`sidebar-note-star ${note.metadata?.isFavorite ? "favorited" : ""}`}
                           onClick={(e) => handleToggleFavorite(e, note._id)}
