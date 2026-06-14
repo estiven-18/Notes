@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import Sidebar from './components/Sidebar';
@@ -45,7 +45,9 @@ function Home() {
               }
             : prev,
         );
-      }).catch(() => {});
+      }).catch(() => {
+        setActiveNote(null);
+      });
     }
   }, []);
 
@@ -86,8 +88,11 @@ function App() {
   const dispatch = useDispatch();
   const { token } = useSelector((state) => state.auth);
 
+  const verifiedRef = useRef(false);
+
   useEffect(() => {
-    if (token) {
+    if (token && !verifiedRef.current) {
+      verifiedRef.current = true;
       dispatch(verifyToken());
     }
   }, [dispatch, token]);

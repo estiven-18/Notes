@@ -177,11 +177,13 @@ export const verifyAuth = async () => {
   return data.data;
 };
 
-export const updateProfile = async ({ name, email, password, currentPassword }) => {
+export const updateProfile = async ({ name, email, password }) => {
+  const body = { name, email };
+  if (password) body.password = password;
   const response = await fetch(`${API_URL}/auth/profile`, {
     method: "PUT",
     headers: getAuthHeaders(),
-    body: JSON.stringify({ name, email }),
+    body: JSON.stringify(body),
   });
   const data = await response.json();
   if (!data.success) throw new Error(data.message);

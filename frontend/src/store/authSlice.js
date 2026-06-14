@@ -35,9 +35,9 @@ export const loginUser = createAsyncThunk('auth/login', async ({ email, password
   }
 });
 
-export const updateUserProfile = createAsyncThunk('auth/updateProfile', async ({ name, email }, { rejectWithValue }) => {
+export const updateUserProfile = createAsyncThunk('auth/updateProfile', async ({ name, email, password }, { rejectWithValue }) => {
   try {
-    const data = await api.updateProfile({ name, email });
+    const data = await api.updateProfile({ name, email, password });
     localStorage.setItem(USER_KEY, JSON.stringify(data.user));
     return data;
   } catch (error) {
@@ -50,10 +50,8 @@ export const verifyToken = createAsyncThunk('auth/verify', async (_, { rejectWit
     const data = await api.verifyAuth();
     localStorage.setItem(USER_KEY, JSON.stringify(data.user));
     return data;
-  } catch (error) {
-    localStorage.removeItem(TOKEN_KEY);
-    localStorage.removeItem(USER_KEY);
-    return rejectWithValue(error.message);
+  } catch {
+    return rejectWithValue('Token inválido');
   }
 });
 
@@ -116,8 +114,6 @@ const authSlice = createSlice({
       })
       .addCase(verifyToken.rejected, (state) => {
         state.loading = false;
-        state.token = null;
-        state.user = null;
       });
   },
 });

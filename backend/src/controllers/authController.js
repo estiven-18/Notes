@@ -70,7 +70,7 @@ export const login = async (req, res) => {
 
 export const updateProfile = async (req, res) => {
   try {
-    const { name, email, password, currentPassword } = req.body;
+    const { name, email, password } = req.body;
 
     if (!name || !email) {
       return res.status(400).json({ success: false, message: 'Nombre y email son requeridos' });
@@ -81,28 +81,24 @@ export const updateProfile = async (req, res) => {
       return res.status(409).json({ success: false, message: 'El email ya está en uso' });
     }
 
-    const updateData = { name, email: email.toLowerCase() };
+    const user = await User.findById(req.user._id);
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'Usuario no encontrado' });
+    }
 
+    user.name = name;
+    user.email = email.toLowerCase();
     if (password) {
       if (password.length < 6) {
         return res.status(400).json({ success: false, message: 'La contraseña debe tener al menos 6 caracteres' });
       }
-      updateData.password = password;
+      user.password = password;
     }
-
-    const updated = await User.findByIdAndUpdate(
-      req.user._id,
-      updateData,
-      { new: true, runValidators: true }
-    ).select('-password');
-
-    if (!updated) {
-      return res.status(404).json({ success: false, message: 'Usuario no encontrado' });
-    }
+    await user.save();
 
     res.json({
       success: true,
-      data: { user: { id: updated._id, name: updated.name, email: updated.email } }
+      data: { user: { id: user._id, name: user.name, email: user.email } }
     });
   } catch (error) {
     if (error.code === 11000) {
