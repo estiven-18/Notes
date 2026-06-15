@@ -114,6 +114,10 @@ const authSlice = createSlice({
       })
       .addCase(verifyToken.rejected, (state) => {
         state.loading = false;
+        state.token = null;
+        state.user = null;
+        localStorage.removeItem(TOKEN_KEY);
+        localStorage.removeItem(USER_KEY);
       });
   },
 });

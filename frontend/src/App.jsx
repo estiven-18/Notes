@@ -47,6 +47,7 @@ function Home() {
         );
       }).catch(() => {
         setActiveNote(null);
+        localStorage.removeItem('activeNote');
       });
     }
   }, []);

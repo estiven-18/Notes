@@ -193,6 +193,7 @@ export const updateProfile = async ({ name, email, password }) => {
 export const toggleCollectionFavorite = async (collectionId) => {
   const response = await fetch(`${API_URL}/collections/${collectionId}/favorite`, {
     method: "POST",
+    headers: getAuthHeaders(),
   });
   const data = await response.json();
   if (!data.success) throw new Error(data.message);
