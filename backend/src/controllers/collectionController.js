@@ -199,10 +199,8 @@ export const createNote = async (req, res) => {
     if (!collection) {
       return res.status(404).json({ success: false, message: "Colección no encontrada" });
     }
-    const isOwner = collection.user.equals(req.user._id);
-    const isShared = collection.sharedWith.some((uid) => uid.equals(req.user._id));
-    if (!isOwner && !isShared) {
-      return res.status(403).json({ success: false, message: "No tienes acceso a esta colección" });
+    if (!collection.user.equals(req.user._id)) {
+      return res.status(403).json({ success: false, message: "Solo el propietario puede crear notas en esta colección" });
     }
     const isFavorite = collection.isFavorite || false;
     const note = await Document.create({

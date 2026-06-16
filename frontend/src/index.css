@@ -164,6 +164,16 @@ body {
   color: var(--color-gray-600);
 }
 
+.sidebar-subsection-header {
+  padding: 4px 10px 2px 22px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-gray-400);
+  letter-spacing: 0.02em;
+  user-select: none;
+  text-transform: uppercase;
+}
+
 .sidebar-nav {
   padding: 4px 8px;
 }
