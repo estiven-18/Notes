@@ -1,9 +1,12 @@
 import Collection from "../models/Collection.js";
 import Document from "../models/Document.js";
+import User from "../models/User.js";
 
 export const getCollections = async (req, res) => {
   try {
-    const collections = await Collection.find({ user: req.user._id }).sort({ updatedAt: -1 });
+    const collections = await Collection.find({ user: req.user._id })
+      .populate('sharedWith', 'name email')
+      .sort({ updatedAt: -1 });
     res.json({ success: true, data: collections });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -67,7 +70,16 @@ export const deleteCollection = async (req, res) => {
 export const getNotesByCollection = async (req, res) => {
   try {
     const { id } = req.params;
-    const notes = await Document.find({ collectionId: id, user: req.user._id })
+    const collection = await Collection.findById(id);
+    if (!collection) {
+      return res.status(404).json({ success: false, message: "Colección no encontrada" });
+    }
+    const isOwner = collection.user.equals(req.user._id);
+    const isShared = collection.sharedWith.some((uid) => uid.equals(req.user._id));
+    if (!isOwner && !isShared) {
+      return res.status(403).json({ success: false, message: "No tienes acceso a esta colección" });
+    }
+    const notes = await Document.find({ collectionId: id })
       .select("title emoji createdAt updatedAt metadata.isFavorite")
       .sort({ updatedAt: -1 });
     res.json({ success: true, data: notes });
@@ -112,13 +124,85 @@ export const getFavoriteCollections = async (req, res) => {
   }
 };
 
+export const shareCollection = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { email } = req.body;
+    if (!email) {
+      return res.status(400).json({ success: false, message: "Email es requerido" });
+    }
+    const targetUser = await User.findOne({ email: email.toLowerCase().trim() });
+    if (!targetUser) {
+      return res.status(404).json({ success: false, message: "Usuario no encontrado" });
+    }
+    if (targetUser._id.equals(req.user._id)) {
+      return res.status(400).json({ success: false, message: "No puedes compartir contigo mismo" });
+    }
+    const collection = await Collection.findOne({ _id: id, user: req.user._id });
+    if (!collection) {
+      return res.status(404).json({ success: false, message: "Colección no encontrada" });
+    }
+    if (collection.sharedWith.some((uid) => uid.equals(targetUser._id))) {
+      return res.status(400).json({ success: false, message: "Ya está compartida con este usuario" });
+    }
+    collection.sharedWith.push(targetUser._id);
+    await collection.save();
+    const populated = await Collection.populate(collection, { path: 'sharedWith', select: 'name email' });
+    res.json({ success: true, data: populated });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const removeShare = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { userId } = req.body;
+    const collection = await Collection.findOne({ _id: id, user: req.user._id });
+    if (!collection) {
+      return res.status(404).json({ success: false, message: "Colección no encontrada" });
+    }
+    collection.sharedWith = collection.sharedWith.filter((uid) => !uid.equals(userId));
+    await collection.save();
+    const populated = await Collection.populate(collection, { path: 'sharedWith', select: 'name email' });
+    res.json({ success: true, data: populated });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const getSharedCollections = async (req, res) => {
+  try {
+    const collections = await Collection.find({ sharedWith: req.user._id })
+      .populate('user', 'name email')
+      .populate('sharedWith', 'name email')
+      .sort({ updatedAt: -1 });
+    const result = await Promise.all(
+      collections.map(async (col) => {
+        const notes = await Document.find({ collectionId: col._id })
+          .select("title emoji createdAt updatedAt metadata.isFavorite")
+          .sort({ updatedAt: -1 });
+        return { ...col.toObject(), notes, isShared: true };
+      }),
+    );
+    res.json({ success: true, data: result });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 export const createNote = async (req, res) => {
   try {
     const { id } = req.params;
     const { title, emoji } = req.body;
-    const collection = await Collection.findOne({ _id: id, user: req.user._id }).select('isFavorite');
+    const collection = await Collection.findById(id).select('isFavorite sharedWith user');
     if (!collection) {
       return res.status(404).json({ success: false, message: "Colección no encontrada" });
+    }
+    const isOwner = collection.user.equals(req.user._id);
+    const isShared = collection.sharedWith.some((uid) => uid.equals(req.user._id));
+    if (!isOwner && !isShared) {
+      return res.status(403).json({ success: false, message: "No tienes acceso a esta colección" });
     }
     const isFavorite = collection.isFavorite || false;
     const note = await Document.create({

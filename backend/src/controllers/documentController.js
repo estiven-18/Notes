@@ -1,6 +1,17 @@
 import Document from '../models/Document.js';
 import Collection from '../models/Collection.js';
 
+const canAccessNote = async (noteId, userId) => {
+  const note = await Document.findById(noteId);
+  if (!note) return null;
+  if (note.user.equals(userId)) return note;
+  if (note.collectionId) {
+    const collection = await Collection.findById(note.collectionId);
+    if (collection && collection.sharedWith.some((uid) => uid.equals(userId))) return note;
+  }
+  return null;
+};
+
 export const getDocument = async (req, res) => {
   try {
     let document = await Document.findOne({ user: req.user._id }).sort({ createdAt: 1 });
@@ -64,7 +75,7 @@ export const deleteDocument = async (req, res) => {
 export const getNoteById = async (req, res) => {
   try {
     const { id } = req.params;
-    const note = await Document.findOne({ _id: id, user: req.user._id });
+    const note = await canAccessNote(id, req.user._id);
     if (!note) {
       return res.status(404).json({ success: false, message: 'Nota no encontrada' });
     }
@@ -88,14 +99,15 @@ export const updateNoteById = async (req, res) => {
     if (title !== undefined) updateFields.title = title;
     if (emoji !== undefined) updateFields.emoji = emoji;
     if (favorite !== undefined) updateFields['metadata.isFavorite'] = favorite;
-    const note = await Document.findOneAndUpdate(
-      { _id: id, user: req.user._id },
+    const existing = await canAccessNote(id, req.user._id);
+    if (!existing) {
+      return res.status(404).json({ success: false, message: 'Nota no encontrada' });
+    }
+    const note = await Document.findByIdAndUpdate(
+      id,
       updateFields,
       { new: true, runValidators: true }
     );
-    if (!note) {
-      return res.status(404).json({ success: false, message: 'Nota no encontrada' });
-    }
     res.json({ success: true, data: note });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -105,7 +117,7 @@ export const updateNoteById = async (req, res) => {
 export const toggleFavorite = async (req, res) => {
   try {
     const { id } = req.params;
-    const note = await Document.findOne({ _id: id, user: req.user._id });
+    const note = await canAccessNote(id, req.user._id);
     if (!note) {
       return res.status(404).json({ success: false, message: 'Nota no encontrada' });
     }

@@ -8,6 +8,9 @@ import {
   createNote,
   toggleCollectionFavorite,
   getFavoriteCollections,
+  shareCollection,
+  removeShare,
+  getSharedCollections,
 } from '../controllers/collectionController.js';
 import { auth } from '../middleware/auth.js';
 
@@ -16,6 +19,7 @@ const router = Router();
 router.use(auth);
 
 router.get('/favorites', getFavoriteCollections);
+router.get('/shared/with-me', getSharedCollections);
 router.get('/', getCollections);
 router.post('/', createCollection);
 router.put('/:id', updateCollection);
@@ -23,5 +27,7 @@ router.delete('/:id', deleteCollection);
 router.get('/:id/notes', getNotesByCollection);
 router.post('/:id/notes', createNote);
 router.post('/:id/favorite', toggleCollectionFavorite);
+router.post('/:id/share', shareCollection);
+router.post('/:id/unshare', removeShare);
 
 export default router;

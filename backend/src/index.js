@@ -2,6 +2,7 @@ import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import connectDB from "./config/database.js";
+import { setupSignalingServer } from "./config/signaling.js";
 import documentRoutes from "./routes/documentRoutes.js";
 import collectionRoutes from "./routes/collectionRoutes.js";
 import authRoutes from "./routes/authRoutes.js";
@@ -94,9 +95,13 @@ const startServer = async () => {
     await connectDB();
 
     // Iniciar servidor Express
-    app.listen(PORT, () => {
+    const server = app.listen(PORT, () => {
       console.log(`Servidor Backend Iniciado Puerto: ${PORT}`);
     });
+
+    // Servidor de señalización WebSocket para Yjs
+    setupSignalingServer(server);
+    console.log("Servidor de señalización WebSocket iniciado");
   } catch (error) {
     console.error("Error al iniciar servidor:", error);
     process.exit(1);

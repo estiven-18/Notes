@@ -273,6 +273,86 @@ body {
   color: var(--color-yellow-500);
 }
 
+.sidebar-collection-share {
+  opacity: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  padding: 0 2px;
+  color: var(--color-gray-300);
+  display: flex;
+  align-items: center;
+  transition: opacity 0.15s, color 0.15s;
+  flex-shrink: 0;
+}
+
+.sidebar-collection-header:hover .sidebar-collection-share {
+  opacity: 1;
+}
+
+.sidebar-collection-share:hover {
+  color: var(--color-gray-600);
+}
+
+.shared-badge {
+  font-size: 10px;
+  color: var(--color-gray-400);
+  background: var(--color-gray-200);
+  padding: 1px 6px;
+  border-radius: 3px;
+  margin-left: 4px;
+  flex-shrink: 0;
+  font-weight: 500;
+}
+
+.share-error {
+  color: #b91c1c;
+  font-size: 12px;
+  margin: 6px 0 0;
+  padding: 4px 0;
+}
+
+.shared-users-list {
+  border-top: 1px solid var(--color-gray-200);
+  padding: 12px 18px;
+}
+
+.shared-users-title {
+  font-size: 12px;
+  color: var(--color-gray-500);
+  margin: 0 0 8px;
+  font-weight: 500;
+}
+
+.shared-user-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 0;
+  font-size: 13px;
+}
+
+.shared-user-name {
+  color: var(--color-gray-700);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.shared-user-remove {
+  border: none;
+  background: transparent;
+  color: var(--color-gray-400);
+  cursor: pointer;
+  font-size: 16px;
+  padding: 0 4px;
+  flex-shrink: 0;
+}
+
+.shared-user-remove:hover {
+  color: var(--color-gray-700);
+}
+
 .sidebar-notes {
   padding-left: 16px;
 }

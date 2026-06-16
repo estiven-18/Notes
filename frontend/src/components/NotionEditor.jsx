@@ -1,153 +1,21 @@
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback, useRef, useMemo, startTransition } from "react";
+import { useSelector } from "react-redux";
 import { useCreateBlockNote } from "@blocknote/react";
 import { BlockNoteView } from "@blocknote/mantine";
 import "@blocknote/mantine/style.css";
+import * as Y from "yjs";
+import { WebsocketProvider } from "y-websocket";
 import { getNoteById, updateNoteById, toggleFavorite } from "../services/api";
-import useAutosave from "../hooks/useAutosave";
 import SavingIndicator from "./SavingIndicator";
 import EmojiPicker from "./EmojiPicker";
 
+const userColors = [
+  "#ff6b6b", "#ffa94d", "#ffd43b", "#69db7c", "#38d9a9",
+  "#4dabf7", "#748ffc", "#da77f2", "#f783ac", "#63e6be",
+];
+
 const NotionEditor = ({ noteId, onTitleChange, onEmojiChange, onFavoriteToggle }) => {
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [lastSaved, setLastSaved] = useState(null);
-  const [title, setTitle] = useState("");
-  const [emoji, setEmoji] = useState(null);
-  const [isFavorite, setIsFavorite] = useState(false);
-  const titleTimeoutRef = useRef(null);
-  const previousNoteId = useRef(null);
-  const isSavingRef = useRef(false);
-  const titleInputRef = useRef(null);
-  const loadedContentRef = useRef(null);
-
-  const editor = useCreateBlockNote();
-
-  const saveCurrentNote = useCallback(async () => {
-    const id = previousNoteId.current;
-    if (!editor || !id || isSavingRef.current) return;
-    const contentStr = JSON.stringify(editor.document);
-    if (contentStr === loadedContentRef.current) return;
-    isSavingRef.current = true;
-    try {
-      await updateNoteById(id, { content: editor.document });
-      loadedContentRef.current = contentStr;
-      setLastSaved(Date.now());
-    } catch (err) {
-      console.error("Error al guardar:", err);
-    } finally {
-      isSavingRef.current = false;
-    }
-  }, [editor]);
-
-  const loadNote = useCallback(
-    async (id) => {
-      if (!editor) return;
-      setIsLoading(true);
-      setError(null);
-      try {
-        const note = await getNoteById(id);
-        setTitle(note.title === "Sin título" ? "" : note.title);
-        setEmoji(note.emoji || null);
-        setIsFavorite(note.metadata?.isFavorite || false);
-        setLastSaved(new Date(note.updatedAt).getTime());
-        if (note.content && note.content.length > 0) {
-          editor.replaceBlocks(editor.document, note.content);
-        } else {
-          editor.replaceBlocks(editor.document, [
-            { type: "paragraph", content: [] },
-          ]);
-        }
-        loadedContentRef.current = JSON.stringify(editor.document);
-      } catch (err) {
-        setError(err.message);
-      } finally {
-        setIsLoading(false);
-      }
-    },
-    [editor],
-  );
-
-  useEffect(() => {
-    if (!noteId || !editor) return;
-
-    if (previousNoteId.current && previousNoteId.current !== noteId) {
-      saveCurrentNote().then(() => {
-        previousNoteId.current = noteId;
-        loadNote(noteId);
-      });
-    } else if (!previousNoteId.current) {
-      previousNoteId.current = noteId;
-      loadNote(noteId);
-    }
-  }, [noteId, editor, saveCurrentNote, loadNote]);
-
-  useEffect(() => {
-    if (!isLoading && (!title || title === 'Sin título') && titleInputRef.current) {
-      titleInputRef.current.focus();
-    }
-  }, [noteId, isLoading, title]);
-
-  const handleSave = useCallback(async () => {
-    if (!editor || !noteId || isSavingRef.current) return;
-    const contentStr = JSON.stringify(editor.document);
-    if (contentStr === loadedContentRef.current) return;
-    isSavingRef.current = true;
-    try {
-      await updateNoteById(noteId, { content: editor.document });
-      loadedContentRef.current = contentStr;
-      setLastSaved(Date.now());
-    } catch (err) {
-      console.error("Error al guardar:", err);
-    } finally {
-      isSavingRef.current = false;
-    }
-  }, [editor, noteId]);
-
-  useAutosave(handleSave, [JSON.stringify(editor?.document)], 2000);
-
-  const handleTitleChange = (e) => {
-    const newTitle = e.target.value;
-    setTitle(newTitle);
-    if (titleTimeoutRef.current) clearTimeout(titleTimeoutRef.current);
-    titleTimeoutRef.current = setTimeout(async () => {
-      const finalTitle = newTitle.trim() || 'Sin título';
-      if (onTitleChange) onTitleChange(noteId, finalTitle);
-      if (noteId) {
-        try {
-          await updateNoteById(noteId, { title: finalTitle });
-          setTitle(finalTitle === "Sin título" ? "" : finalTitle);
-          setLastSaved(Date.now());
-        } catch (err) {
-          console.error("Error al guardar título:", err);
-        }
-      }
-    }, 500);
-  };
-
-  const handleEmojiSelect = async (newEmoji) => {
-    setEmoji(newEmoji);
-    if (onEmojiChange) onEmojiChange(noteId, newEmoji);
-    if (noteId) {
-      try {
-        await updateNoteById(noteId, { emoji: newEmoji });
-        setLastSaved(Date.now());
-      } catch (err) {
-        console.error("Error al guardar emoji:", err);
-      }
-    }
-  };
-
-  const handleFavoriteClick = async () => {
-    if (!noteId) return;
-    try {
-      const updated = await toggleFavorite(noteId);
-      const newFav = updated.metadata?.isFavorite || false;
-      setIsFavorite(newFav);
-      if (onFavoriteToggle) onFavoriteToggle();
-    } catch (err) {
-      console.error("Error al cambiar favorito:", err);
-    }
-  };
+  const currentUser = useSelector((state) => state.auth.user);
 
   if (!noteId) {
     return (
@@ -159,6 +27,156 @@ const NotionEditor = ({ noteId, onTitleChange, onEmojiChange, onFavoriteToggle }
     );
   }
 
+  return (
+    <div className="editor-container">
+      <EditorInner
+        key={noteId}
+        noteId={noteId}
+        currentUser={currentUser}
+        onTitleChange={onTitleChange}
+        onEmojiChange={onEmojiChange}
+        onFavoriteToggle={onFavoriteToggle}
+      />
+    </div>
+  );
+};
+
+const EditorInner = ({ noteId, currentUser, onTitleChange, onEmojiChange, onFavoriteToggle }) => {
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [lastSaved, setLastSaved] = useState(null);
+  const [title, setTitle] = useState("");
+  const [emoji, setEmoji] = useState(null);
+  const [isFavorite, setIsFavorite] = useState(false);
+  const titleTimeoutRef = useRef(null);
+  const isSavingRef = useRef(false);
+  const titleInputRef = useRef(null);
+  const loadedContentRef = useRef(null);
+
+  const WS_URL = import.meta.env.VITE_WS_URL || `http://localhost:3001`;
+
+  const { ydoc, provider } = useMemo(() => {
+    const y = new Y.Doc();
+    const p = new WebsocketProvider(WS_URL, `note-${noteId}`, y);
+    return { ydoc: y, provider: p };
+  }, [noteId, WS_URL]);
+
+  const userColor = useMemo(() => {
+    if (!currentUser?._id) return userColors[0];
+    let hash = 0;
+    for (let i = 0; i < currentUser._id.length; i++) {
+      hash = currentUser._id.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    return userColors[Math.abs(hash) % userColors.length];
+  }, [currentUser]);
+
+  const editor = useCreateBlockNote({
+    collaboration: {
+      provider,
+      fragment: ydoc.getXmlFragment("document-store"),
+      user: {
+        name: currentUser?.name || "Anónimo",
+        color: userColor,
+      },
+      showCursorLabels: "activity",
+    },
+  }, [noteId]);
+
+  const doSave = useCallback(async () => {
+    if (!editor || isSavingRef.current) return;
+    const doc = editor.document;
+    const contentStr = JSON.stringify(doc);
+    if (contentStr === loadedContentRef.current) return;
+    isSavingRef.current = true;
+    try {
+      await updateNoteById(noteId, { content: doc });
+      loadedContentRef.current = contentStr;
+      setLastSaved(Date.now());
+    } catch (err) {
+      console.error("Error al guardar:", err);
+    } finally {
+      isSavingRef.current = false;
+    }
+  }, [noteId, editor]);
+
+  useEffect(() => {
+    if (!editor) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const note = await getNoteById(noteId);
+        if (cancelled) return;
+        startTransition(() => {
+          setTitle(note.title === "Sin título" ? "" : note.title);
+          setEmoji(note.emoji || null);
+          setIsFavorite(note.metadata?.isFavorite || false);
+          setLastSaved(new Date(note.updatedAt).getTime());
+        });
+        if (note.content && note.content.length > 0) {
+          editor.replaceBlocks(editor.document, note.content);
+        } else {
+          editor.replaceBlocks(editor.document, [{ type: "paragraph", content: [] }]);
+        }
+        loadedContentRef.current = JSON.stringify(editor.document);
+      } catch (err) {
+        if (!cancelled) startTransition(() => setError(err.message));
+      } finally {
+        if (!cancelled) startTransition(() => setIsLoading(false));
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [editor, noteId]);
+
+  useEffect(() => {
+    if (!isLoading && (!title || title === 'Sin título') && titleInputRef.current) {
+      titleInputRef.current.focus();
+    }
+  }, [isLoading, title]);
+
+  useEffect(() => {
+    const interval = setInterval(() => doSave(), 2000);
+    return () => { clearInterval(interval); };
+  }, [doSave]);
+
+  const handleTitleChange = (e) => {
+    const newTitle = e.target.value;
+    setTitle(newTitle);
+    if (titleTimeoutRef.current) clearTimeout(titleTimeoutRef.current);
+    titleTimeoutRef.current = setTimeout(async () => {
+      const finalTitle = newTitle.trim() || 'Sin título';
+      if (onTitleChange) onTitleChange(noteId, finalTitle);
+      try {
+        await updateNoteById(noteId, { title: finalTitle });
+        setTitle(finalTitle === "Sin título" ? "" : finalTitle);
+        setLastSaved(Date.now());
+      } catch (err) {
+        console.error("Error al guardar título:", err);
+      }
+    }, 500);
+  };
+
+  const handleEmojiSelect = async (newEmoji) => {
+    setEmoji(newEmoji);
+    if (onEmojiChange) onEmojiChange(noteId, newEmoji);
+    try {
+      await updateNoteById(noteId, { emoji: newEmoji });
+      setLastSaved(Date.now());
+    } catch (err) {
+      console.error("Error al guardar emoji:", err);
+    }
+  };
+
+  const handleFavoriteClick = async () => {
+    try {
+      const updated = await toggleFavorite(noteId);
+      const newFav = updated.metadata?.isFavorite || false;
+      setIsFavorite(newFav);
+      if (onFavoriteToggle) onFavoriteToggle();
+    } catch (err) {
+      console.error("Error al cambiar favorito:", err);
+    }
+  };
+
   if (error) {
     return (
       <div className="editor-empty">
@@ -169,7 +187,7 @@ const NotionEditor = ({ noteId, onTitleChange, onEmojiChange, onFavoriteToggle }
   }
 
   return (
-    <div className="editor-container">
+    <>
       <header className="editor-topbar">
         <div className="editor-topbar-left">
           <button
@@ -217,7 +235,7 @@ const NotionEditor = ({ noteId, onTitleChange, onEmojiChange, onFavoriteToggle }
           </>
         )}
       </main>
-    </div>
+    </>
   );
 };
 

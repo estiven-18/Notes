@@ -16,6 +16,10 @@ const collectionSchema = new mongoose.Schema({
     type: Boolean,
     default: false
   },
+  sharedWith: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  }],
   createdAt: {
     type: Date,
     default: Date.now

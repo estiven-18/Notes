@@ -190,6 +190,37 @@ export const updateProfile = async ({ name, email, password }) => {
   return data.data;
 };
 
+export const shareCollection = async (collectionId, email) => {
+  const response = await fetch(`${API_URL}/collections/${collectionId}/share`, {
+    method: "POST",
+    headers: getAuthHeaders(),
+    body: JSON.stringify({ email }),
+  });
+  const data = await response.json();
+  if (!data.success) throw new Error(data.message);
+  return data.data;
+};
+
+export const removeShare = async (collectionId, userId) => {
+  const response = await fetch(`${API_URL}/collections/${collectionId}/unshare`, {
+    method: "POST",
+    headers: getAuthHeaders(),
+    body: JSON.stringify({ userId }),
+  });
+  const data = await response.json();
+  if (!data.success) throw new Error(data.message);
+  return data.data;
+};
+
+export const getSharedCollections = async () => {
+  const response = await fetch(`${API_URL}/collections/shared/with-me`, {
+    headers: getAuthHeaders(),
+  });
+  const data = await response.json();
+  if (!data.success) throw new Error(data.message);
+  return data.data;
+};
+
 export const toggleCollectionFavorite = async (collectionId) => {
   const response = await fetch(`${API_URL}/collections/${collectionId}/favorite`, {
     method: "POST",
