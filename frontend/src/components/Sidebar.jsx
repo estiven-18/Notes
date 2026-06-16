@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, startTransition } from "react";
 import { useDispatch } from "react-redux";
 import {
   getCollections,
@@ -14,6 +14,7 @@ import {
   shareCollection,
   removeShare,
   getSharedCollections,
+  searchNotes,
 } from "../services/api";
 import { logout } from "../store/authSlice";
 import { useNavigate } from "react-router-dom";
@@ -52,6 +53,10 @@ const Sidebar = ({ activeNote, onSelectNote, onAddCollection, favoriteRefreshKey
   const [shareModalCol, setShareModalCol] = useState(null);
   const [sharedCollections, setSharedCollections] = useState([]);
   const [sharedOpen, setSharedOpen] = useState(true);
+
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState({ collections: [], notes: [] });
+  const [searching, setSearching] = useState(false);
 
   const publicCollections = useMemo(() => collections.filter(c => c.sharedWith?.length > 0), [collections]);
   const privateCollections = useMemo(() => collections.filter(c => !c.sharedWith || c.sharedWith.length === 0), [collections]);
@@ -142,6 +147,25 @@ const Sidebar = ({ activeNote, onSelectNote, onAddCollection, favoriteRefreshKey
   useEffect(() => {
     localStorage.setItem('sidebarExpanded', JSON.stringify(expanded));
   }, [expanded]);
+
+  useEffect(() => {
+    if (!searchQuery.trim()) {
+      startTransition(() => setSearchResults({ collections: [], notes: [] }));
+      return;
+    }
+    const timer = setTimeout(async () => {
+      setSearching(true);
+      try {
+        const results = await searchNotes(searchQuery.trim());
+        setSearchResults(results);
+      } catch {
+        setSearchResults({ collections: [], notes: [] });
+      } finally {
+        setSearching(false);
+      }
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
 
   const toggleExpand = async (colId) => {
     const next = { ...expanded, [colId]: !expanded[colId] };
@@ -495,7 +519,83 @@ const Sidebar = ({ activeNote, onSelectNote, onAddCollection, favoriteRefreshKey
         </button>
       </div>
 
-      <div className="sidebar-nav-header" onClick={() => setCollectionsOpen((o) => !o)}>
+      <div className="sidebar-search">
+        <input
+          className="sidebar-search-input"
+          type="text"
+          placeholder="Buscar notas, colecciones..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+        />
+        {(searchQuery.trim() && (searchResults.collections.length > 0 || searchResults.notes.length > 0 || searching)) && (
+          <div className="sidebar-search-results">
+            {searching ? (
+              <div className="sidebar-search-loading">Buscando...</div>
+            ) : (
+              <>
+                {searchResults.collections.map(col => (
+                  <div
+                    key={col._id}
+                    className="sidebar-search-item"
+                    onClick={() => {
+                      const inPublic = publicCollections.some(c => c._id === col._id);
+                      const inPrivate = privateCollections.some(c => c._id === col._id);
+                      const inShared = sharedCollections.some(c => c._id === col._id);
+                      if (inShared) setSharedOpen(true);
+                      if (inPublic) setPublicasOpen(true);
+                      if (inPrivate) setPrivadasOpen(true);
+                      if (inPublic) setExpandedPublicas((prev) => ({ ...prev, [col._id]: true }));
+                      if (inPrivate) setExpandedPrivadas((prev) => ({ ...prev, [col._id]: true }));
+                      if (inShared) setExpanded((prev) => ({ ...prev, [col._id]: true }));
+                      setSearchQuery("");
+                      setSearchResults({ collections: [], notes: [] });
+                    }}
+                  >
+                    <span className="sidebar-search-item-icon">
+                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" width="14" height="14">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 12.75V12A2.25 2.25 0 0 1 4.5 9.75h15A2.25 2.25 0 0 1 21.75 12v.75m-8.69-6.44-2.12-2.12a1.5 1.5 0 0 0-1.061-.44H4.5A2.25 2.25 0 0 0 2.25 6v12a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9a2.25 2.25 0 0 0-2.25-2.25h-5.379a1.5 1.5 0 0 1-1.06-.44Z" />
+                      </svg>
+                    </span>
+                    <span className="sidebar-search-item-name">{col.name}</span>
+                    <span className="sidebar-search-item-type">Colección</span>
+                  </div>
+                ))}
+                {searchResults.notes.map(note => (
+                  <div
+                    key={note._id}
+                    className="sidebar-search-item"
+                    onClick={() => {
+                      const inPublic = publicCollections.some(c => c._id === note.collectionId);
+                      const inPrivate = privateCollections.some(c => c._id === note.collectionId);
+                      const inShared = sharedCollections.some(c => c._id === note.collectionId);
+                      if (inShared) setSharedOpen(true);
+                      if (inPublic) setPublicasOpen(true);
+                      if (inPrivate) setPrivadasOpen(true);
+                      if (inPublic) setExpandedPublicas((prev) => ({ ...prev, [note.collectionId]: true }));
+                      if (inPrivate) setExpandedPrivadas((prev) => ({ ...prev, [note.collectionId]: true }));
+                      if (inShared) setExpanded((prev) => ({ ...prev, [note.collectionId]: true }));
+                      onSelectNote({
+                        _id: note._id,
+                        title: note.title || 'Sin título',
+                        emoji: note.emoji != null ? note.emoji : null,
+                        collectionId: note.collectionId,
+                      });
+                      setSearchQuery("");
+                      setSearchResults({ collections: [], notes: [] });
+                    }}
+                  >
+                    <span className="sidebar-search-item-icon">{note.emoji || '📄'}</span>
+                    <span className="sidebar-search-item-name">{note.title || 'Sin título'}</span>
+                    <span className="sidebar-search-item-type">{note.collectionName}</span>
+                  </div>
+                ))}
+              </>
+            )}
+          </div>
+        )}
+      </div>
+
+      <div className="sidebar-nav-header" onClick={() => { if (collectionsOpen) setExpanded({}); setCollectionsOpen((o) => !o); }}>
         <span className={`sidebar-nav-chevron ${collectionsOpen ? "open" : ""}`}>
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" width="12" height="12">
             <path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
@@ -530,7 +630,7 @@ const Sidebar = ({ activeNote, onSelectNote, onAddCollection, favoriteRefreshKey
 
       {publicCollections.length > 0 && (
         <>
-          <div className="sidebar-nav-header" onClick={() => setPublicasOpen((o) => !o)}>
+          <div className="sidebar-nav-header" onClick={() => { if (publicasOpen) setExpandedPublicas({}); setPublicasOpen((o) => !o); }}>
             <span className={`sidebar-nav-chevron ${publicasOpen ? "open" : ""}`}>
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" width="12" height="12">
                 <path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
@@ -548,7 +648,7 @@ const Sidebar = ({ activeNote, onSelectNote, onAddCollection, favoriteRefreshKey
 
       {privateCollections.length > 0 && (
         <>
-          <div className="sidebar-nav-header" onClick={() => setPrivadasOpen((o) => !o)}>
+          <div className="sidebar-nav-header" onClick={() => { if (privadasOpen) setExpandedPrivadas({}); setPrivadasOpen((o) => !o); }}>
             <span className={`sidebar-nav-chevron ${privadasOpen ? "open" : ""}`}>
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" width="12" height="12">
                 <path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
@@ -733,7 +833,7 @@ const Sidebar = ({ activeNote, onSelectNote, onAddCollection, favoriteRefreshKey
 
       {sharedCollections.length > 0 && (
         <>
-          <div className="sidebar-nav-header" onClick={() => setSharedOpen((o) => !o)}>
+          <div className="sidebar-nav-header" onClick={() => { if (sharedOpen) setExpanded({}); setSharedOpen((o) => !o); }}>
             <span className={`sidebar-nav-chevron ${sharedOpen ? "open" : ""}`}>
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" width="12" height="12">
                 <path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />

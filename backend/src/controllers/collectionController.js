@@ -191,6 +191,62 @@ export const getSharedCollections = async (req, res) => {
   }
 };
 
+const extractTextFromContent = (content) => {
+  if (!Array.isArray(content)) return '';
+  return content.flatMap(block => {
+    if (block.content && Array.isArray(block.content)) {
+      return block.content.map(inline => inline.text || '');
+    }
+    return [];
+  }).join(' ');
+};
+
+export const search = async (req, res) => {
+  try {
+    const q = (req.query.q || '').trim();
+    if (!q) return res.json({ success: true, data: { collections: [], notes: [] } });
+
+    const regex = new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+
+    const userCollectionIds = await Collection.find({ user: req.user._id }).distinct('_id');
+    const sharedCollectionIds = await Collection.find({ sharedWith: req.user._id }).distinct('_id');
+    const allIds = [...userCollectionIds, ...sharedCollectionIds];
+
+    const matchingCollections = await Collection.find({
+      _id: { $in: allIds },
+      name: regex
+    }).select('name').lean();
+
+    const allNotes = await Document.find({ collectionId: { $in: allIds } })
+      .select('title emoji content collectionId')
+      .populate('collectionId', 'name')
+      .lean();
+
+    const matchingNotes = allNotes.filter(note => {
+      if (regex.test(note.title)) return true;
+      if (note.emoji && regex.test(note.emoji)) return true;
+      if (note.content && extractTextFromContent(note.content).match(regex)) return true;
+      return false;
+    }).map(note => ({
+      _id: note._id,
+      title: note.title,
+      emoji: note.emoji,
+      collectionId: note.collectionId?._id,
+      collectionName: note.collectionId?.name || 'Sin nombre',
+    }));
+
+    res.json({
+      success: true,
+      data: {
+        collections: matchingCollections.map(c => ({ _id: c._id, name: c.name })),
+        notes: matchingNotes,
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 export const createNote = async (req, res) => {
   try {
     const { id } = req.params;

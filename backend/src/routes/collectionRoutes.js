@@ -11,6 +11,7 @@ import {
   shareCollection,
   removeShare,
   getSharedCollections,
+  search,
 } from '../controllers/collectionController.js';
 import { auth } from '../middleware/auth.js';
 
@@ -20,6 +21,7 @@ router.use(auth);
 
 router.get('/favorites', getFavoriteCollections);
 router.get('/shared/with-me', getSharedCollections);
+router.get('/search', search);
 router.get('/', getCollections);
 router.post('/', createCollection);
 router.put('/:id', updateCollection);

@@ -221,6 +221,15 @@ export const getSharedCollections = async () => {
   return data.data;
 };
 
+export const searchNotes = async (q) => {
+  const response = await fetch(`${API_URL}/collections/search?q=${encodeURIComponent(q)}`, {
+    headers: getAuthHeaders(),
+  });
+  const data = await response.json();
+  if (!data.success) throw new Error(data.message);
+  return data.data;
+};
+
 export const toggleCollectionFavorite = async (collectionId) => {
   const response = await fetch(`${API_URL}/collections/${collectionId}/favorite`, {
     method: "POST",
