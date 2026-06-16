@@ -38,7 +38,12 @@ const documentSchema = new mongoose.Schema({
     type: String,
     default: null
   },
-  
+
+  sharedWith: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  }],
+
   metadata: {
     workspaceId: {
       type: mongoose.Schema.Types.ObjectId,

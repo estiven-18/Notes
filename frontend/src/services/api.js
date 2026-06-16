@@ -239,3 +239,34 @@ export const toggleCollectionFavorite = async (collectionId) => {
   if (!data.success) throw new Error(data.message);
   return data.data;
 };
+
+export const shareNote = async (noteId, email) => {
+  const response = await fetch(`${API_URL}/document/${noteId}/share`, {
+    method: "POST",
+    headers: getAuthHeaders(),
+    body: JSON.stringify({ email }),
+  });
+  const data = await response.json();
+  if (!data.success) throw new Error(data.message);
+  return data.data;
+};
+
+export const removeNoteShare = async (noteId, userId) => {
+  const response = await fetch(`${API_URL}/document/${noteId}/unshare`, {
+    method: "POST",
+    headers: getAuthHeaders(),
+    body: JSON.stringify({ userId }),
+  });
+  const data = await response.json();
+  if (!data.success) throw new Error(data.message);
+  return data.data;
+};
+
+export const getSharedNotes = async () => {
+  const response = await fetch(`${API_URL}/document/shared/with-me`, {
+    headers: getAuthHeaders(),
+  });
+  const data = await response.json();
+  if (!data.success) throw new Error(data.message);
+  return data.data;
+};

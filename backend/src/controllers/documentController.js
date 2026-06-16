@@ -1,5 +1,6 @@
 import Document from '../models/Document.js';
 import Collection from '../models/Collection.js';
+import User from '../models/User.js';
 
 const canAccessNote = async (noteId, userId) => {
   const note = await Document.findById(noteId);
@@ -9,6 +10,7 @@ const canAccessNote = async (noteId, userId) => {
     const collection = await Collection.findById(note.collectionId);
     if (collection && collection.sharedWith.some((uid) => uid.equals(userId))) return note;
   }
+  if (note.sharedWith && note.sharedWith.some((uid) => uid.equals(userId))) return note;
   return null;
 };
 
@@ -124,6 +126,77 @@ export const toggleFavorite = async (req, res) => {
     note.metadata.isFavorite = !note.metadata.isFavorite;
     await note.save();
     res.json({ success: true, data: note });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const shareNote = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { email } = req.body;
+    if (!email) {
+      return res.status(400).json({ success: false, message: "Email es requerido" });
+    }
+    const targetUser = await User.findOne({ email: email.toLowerCase().trim() });
+    if (!targetUser) {
+      return res.status(404).json({ success: false, message: "Usuario no encontrado" });
+    }
+    if (targetUser._id.equals(req.user._id)) {
+      return res.status(400).json({ success: false, message: "No puedes compartir contigo mismo" });
+    }
+    const note = await Document.findOne({ _id: id, user: req.user._id });
+    if (!note) {
+      return res.status(404).json({ success: false, message: "Nota no encontrada" });
+    }
+    if (note.sharedWith && note.sharedWith.some((uid) => uid.equals(targetUser._id))) {
+      return res.status(400).json({ success: false, message: "Ya está compartida con este usuario" });
+    }
+    if (!note.sharedWith) note.sharedWith = [];
+    note.sharedWith.push(targetUser._id);
+    await note.save();
+    const populated = await Document.populate(note, { path: 'sharedWith', select: 'name email' });
+    res.json({ success: true, data: populated });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const removeNoteShare = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { userId } = req.body;
+    const note = await Document.findOne({ _id: id, user: req.user._id });
+    if (!note) {
+      return res.status(404).json({ success: false, message: "Nota no encontrada" });
+    }
+    note.sharedWith = (note.sharedWith || []).filter((uid) => !uid.equals(userId));
+    await note.save();
+    const populated = await Document.populate(note, { path: 'sharedWith', select: 'name email' });
+    res.json({ success: true, data: populated });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const getSharedNotes = async (req, res) => {
+  try {
+    const sharedColIds = await Collection.find({ sharedWith: req.user._id }).distinct('_id');
+    const notes = await Document.find({
+      sharedWith: req.user._id,
+      collectionId: { $nin: sharedColIds },
+    })
+      .select('title emoji collectionId createdAt updatedAt')
+      .populate('collectionId', 'name')
+      .sort({ updatedAt: -1 });
+    const result = notes.map(note => ({
+      _id: note._id,
+      title: note.title,
+      emoji: note.emoji,
+      collectionId: note.collectionId?._id,
+      collectionName: note.collectionId?.name || 'Sin nombre',
+    }));
+    res.json({ success: true, data: result });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
