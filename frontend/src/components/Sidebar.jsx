@@ -22,6 +22,7 @@ import { useNavigate } from "react-router-dom";
 import CreateModal from "./CreateModal";
 import ShareCollectionModal from "./ShareCollectionModal";
 import NotificationBell from "./NotificationBell";
+import ModalPortal from "./ModalPortal";
 
 const Sidebar = ({ activeNote, onSelectNote, onAddCollection, favoriteRefreshKey }) => {
   const dispatch = useDispatch();
@@ -1004,25 +1005,29 @@ const Sidebar = ({ activeNote, onSelectNote, onAddCollection, favoriteRefreshKey
       )}
 
       {showCollectionModal && (
-        <CreateModal
-          title="Nueva colección"
-          placeholder="Nombre de la colección"
-          onSubmit={handleCreateCollection}
-          onClose={() => setShowCollectionModal(false)}
-        />
+        <ModalPortal>
+          <CreateModal
+            title="Nueva colección"
+            placeholder="Nombre de la colección"
+            onSubmit={handleCreateCollection}
+            onClose={() => setShowCollectionModal(false)}
+          />
+        </ModalPortal>
       )}
 
       {shareModalCol && (
-        <ShareCollectionModal
-          collection={shareModalCol}
-          onShare={handleShareCollection}
-          onRemoveShare={handleRemoveShare}
-          onClose={async () => {
-            setShareModalCol(null);
-            await refreshCollections();
-            await loadSharedCollections();
-          }}
-        />
+        <ModalPortal>
+          <ShareCollectionModal
+            collection={shareModalCol}
+            onShare={handleShareCollection}
+            onRemoveShare={handleRemoveShare}
+            onClose={async () => {
+              setShareModalCol(null);
+              await refreshCollections();
+              await loadSharedCollections();
+            }}
+          />
+        </ModalPortal>
       )}
 
     </aside>

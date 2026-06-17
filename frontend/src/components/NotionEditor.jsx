@@ -9,7 +9,7 @@ import { getNoteById, updateNoteById, toggleFavorite, shareNote, removeNoteShare
 import SavingIndicator from "./SavingIndicator";
 import EmojiPicker from "./EmojiPicker";
 import ShareNoteModal from "./ShareNoteModal";
-
+import ModalPortal from "./ModalPortal";
 const userColors = [
   "#ff6b6b", "#ffa94d", "#ffd43b", "#69db7c", "#38d9a9",
   "#4dabf7", "#748ffc", "#da77f2", "#f783ac", "#63e6be",
@@ -260,12 +260,14 @@ const EditorInner = ({ noteId, currentUser, onTitleChange, onEmojiChange, onFavo
       </main>
 
       {shareModalOpen && (
-        <ShareNoteModal
-          note={{ _id: noteId, title, sharedWith: noteSharedWith }}
-          onShare={handleShareNote}
-          onRemoveShare={handleRemoveNoteShare}
-          onClose={() => setShareModalOpen(false)}
-        />
+        <ModalPortal>
+          <ShareNoteModal
+            note={{ _id: noteId, title, sharedWith: noteSharedWith }}
+            onShare={handleShareNote}
+            onRemoveShare={handleRemoveNoteShare}
+            onClose={() => setShareModalOpen(false)}
+          />
+        </ModalPortal>
       )}
     </>
   );

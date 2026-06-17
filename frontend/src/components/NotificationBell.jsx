@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { getNotifications, acceptInvitation, rejectInvitation, markNotificationRead, markAllNotificationsRead } from "../services/api";
+import ModalPortal from "./ModalPortal";
 
 const NotificationBell = ({ onRefresh }) => {
   const [open, setOpen] = useState(false);
@@ -90,81 +91,83 @@ const NotificationBell = ({ onRefresh }) => {
       </div>
 
       {open && (
-        <div className="modal-overlay" onClick={() => setOpen(false)}>
-          <div className="modal-content notification-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <h3 className="modal-title">Notificaciones</h3>
-              {unreadCount > 0 && (
-                <button className="notification-mark-all-read" onClick={handleMarkAllRead}>
-                  Marcar todas leídas
-                </button>
-              )}
-              <button className="modal-close" onClick={() => setOpen(false)}>×</button>
-            </div>
-            <div className="notification-modal-body">
-              {loading ? (
-                <div className="notification-empty">Cargando...</div>
-              ) : notifications.length === 0 ? (
-                <div className="notification-empty">Sin notificaciones</div>
-              ) : (
-                notifications.map((n) => (
-                  <div
-                    key={n._id}
-                    className={`notification-item ${n.read ? "" : "unread"}`}
-                  >
-                    <div className="notification-item-content">
-                      {n.type === "share_invitation" ? (
-                        <>
-                          <strong>{n.from?.name || "Alguien"}</strong> te invitó a la colección <strong>{n.collection?.name || "sin nombre"}</strong>
-                          {n.status === "pending" && (
-                            <div className="notification-actions">
-                              <button
-                                className="notification-btn notification-btn-accept"
-                                onClick={(e) => { e.stopPropagation(); handleAccept(n._id); }}
-                              >
-                                Aceptar
-                              </button>
-                              <button
-                                className="notification-btn notification-btn-reject"
-                                onClick={(e) => { e.stopPropagation(); handleReject(n._id); }}
-                              >
-                                Rechazar
-                              </button>
-                            </div>
-                          )}
-                          {n.status === "accepted" && (
-                            <span className="notification-status accepted">Aceptada</span>
-                          )}
-                          {n.status === "rejected" && (
-                            <span className="notification-status rejected">Rechazada</span>
-                          )}
-                        </>
-                      ) : (
-                        <>
-                          <strong>{n.from?.name || "Alguien"}</strong> aceptó tu invitación a <strong>{n.collection?.name || "sin nombre"}</strong>
-                        </>
-                      )}
+        <ModalPortal>
+          <div className="modal-overlay" onClick={() => setOpen(false)}>
+            <div className="modal-content notification-modal" onClick={(e) => e.stopPropagation()}>
+              <div className="modal-header">
+                <h3 className="modal-title">Notificaciones</h3>
+                {unreadCount > 0 && (
+                  <button className="notification-mark-all-read" onClick={handleMarkAllRead}>
+                    Marcar todas leídas
+                  </button>
+                )}
+                <button className="modal-close" onClick={() => setOpen(false)}>×</button>
+              </div>
+              <div className="notification-modal-body">
+                {loading ? (
+                  <div className="notification-empty">Cargando...</div>
+                ) : notifications.length === 0 ? (
+                  <div className="notification-empty">Sin notificaciones</div>
+                ) : (
+                  notifications.map((n) => (
+                    <div
+                      key={n._id}
+                      className={`notification-item ${n.read ? "" : "unread"}`}
+                    >
+                      <div className="notification-item-content">
+                        {n.type === "share_invitation" ? (
+                          <>
+                            <strong>{n.from?.name || "Alguien"}</strong> te invitó a la colección <strong>{n.collection?.name || "sin nombre"}</strong>
+                            {n.status === "pending" && (
+                              <div className="notification-actions">
+                                <button
+                                  className="notification-btn notification-btn-accept"
+                                  onClick={(e) => { e.stopPropagation(); handleAccept(n._id); }}
+                                >
+                                  Aceptar
+                                </button>
+                                <button
+                                  className="notification-btn notification-btn-reject"
+                                  onClick={(e) => { e.stopPropagation(); handleReject(n._id); }}
+                                >
+                                  Rechazar
+                                </button>
+                              </div>
+                            )}
+                            {n.status === "accepted" && (
+                              <span className="notification-status accepted">Aceptada</span>
+                            )}
+                            {n.status === "rejected" && (
+                              <span className="notification-status rejected">Rechazada</span>
+                            )}
+                          </>
+                        ) : (
+                          <>
+                            <strong>{n.from?.name || "Alguien"}</strong> aceptó tu invitación a <strong>{n.collection?.name || "sin nombre"}</strong>
+                          </>
+                        )}
+                      </div>
+                      <div className="notification-item-footer">
+                        <span className="notification-time">{formatDate(n.createdAt)}</span>
+                        {!n.read && (
+                          <button
+                            className="notification-read-btn"
+                            onClick={(e) => { e.stopPropagation(); handleRead(n._id); }}
+                            title="Marcar como leída"
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" width="14" height="14">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                            </svg>
+                          </button>
+                        )}
+                      </div>
                     </div>
-                    <div className="notification-item-footer">
-                      <span className="notification-time">{formatDate(n.createdAt)}</span>
-                      {!n.read && (
-                        <button
-                          className="notification-read-btn"
-                          onClick={(e) => { e.stopPropagation(); handleRead(n._id); }}
-                          title="Marcar como leída"
-                        >
-                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" width="14" height="14">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
-                          </svg>
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                ))
-              )}
+                  ))
+                )}
+              </div>
             </div>
           </div>
-        </div>
+        </ModalPortal>
       )}
     </>
   );
