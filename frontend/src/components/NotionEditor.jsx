@@ -5,7 +5,8 @@ import { BlockNoteView } from "@blocknote/mantine";
 import "@blocknote/mantine/style.css";
 import * as Y from "yjs";
 import { WebsocketProvider } from "y-websocket";
-import { getNoteById, updateNoteById, toggleFavorite, shareNote, removeNoteShare, changeNoteShareRole } from "../services/api";
+import { getNoteById, updateNoteById, toggleFavorite, shareNote, removeNoteShare, changeNoteShareRole, uploadFile } from "../services/api";
+import { es } from "@blocknote/core/locales";
 import SavingIndicator from "./SavingIndicator";
 import EmojiPicker from "./EmojiPicker";
 import ShareNoteModal from "./ShareNoteModal";
@@ -75,6 +76,8 @@ const EditorInner = ({ noteId, currentUser, onTitleChange, onEmojiChange, onFavo
   }, [currentUser]);
 
   const editor = useCreateBlockNote({
+    dictionary: es,
+    uploadFile,
     collaboration: {
       provider,
       fragment: ydoc.getXmlFragment("document-store"),

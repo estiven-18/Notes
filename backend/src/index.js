@@ -8,6 +8,7 @@ import documentRoutes from "./routes/documentRoutes.js";
 import collectionRoutes from "./routes/collectionRoutes.js";
 import authRoutes from "./routes/authRoutes.js";
 import notificationRoutes from "./routes/notificationRoutes.js";
+import uploadRoutes from "./routes/uploadRoutes.js";
 
 // Cargar variables de entorno
 dotenv.config();
@@ -27,6 +28,9 @@ app.use(
 app.use(express.json({ limit: "10mb" })); // Límite aumentado para contenido BlockNote
 app.use(express.urlencoded({ extended: true }));
 
+// Servir archivos subidos estáticamente
+app.use("/uploads", express.static("uploads"));
+
 /**
  * Rutas de la API
  */
@@ -34,6 +38,7 @@ app.use("/api/document", documentRoutes);
 app.use("/api/collections", collectionRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/notifications", notificationRoutes);
+app.use("/api/upload", uploadRoutes);
 
 /**
  * Health check endpoint

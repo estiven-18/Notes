@@ -332,6 +332,20 @@ export const markNotificationRead = async (notificationId) => {
   return data.data;
 };
 
+export const uploadFile = async (file) => {
+  const token = localStorage.getItem('auth_token');
+  const formData = new FormData();
+  formData.append('file', file);
+  const response = await fetch(`${API_URL}/upload`, {
+    method: 'POST',
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    body: formData,
+  });
+  const data = await response.json();
+  if (!data.success) throw new Error(data.message);
+  return data.data.url;
+};
+
 export const markAllNotificationsRead = async () => {
   const response = await fetch(`${API_URL}/notifications/read-all`, {
     method: "POST",
