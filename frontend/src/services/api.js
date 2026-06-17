@@ -190,11 +190,11 @@ export const updateProfile = async ({ name, email, password }) => {
   return data.data;
 };
 
-export const shareCollection = async (collectionId, email) => {
+export const shareCollection = async (collectionId, email, role = 'editor') => {
   const response = await fetch(`${API_URL}/collections/${collectionId}/share`, {
     method: "POST",
     headers: getAuthHeaders(),
-    body: JSON.stringify({ email }),
+    body: JSON.stringify({ email, role }),
   });
   const data = await response.json();
   if (!data.success) throw new Error(data.message);
@@ -240,11 +240,11 @@ export const toggleCollectionFavorite = async (collectionId) => {
   return data.data;
 };
 
-export const shareNote = async (noteId, email) => {
+export const shareNote = async (noteId, email, role = 'editor') => {
   const response = await fetch(`${API_URL}/document/${noteId}/share`, {
     method: "POST",
     headers: getAuthHeaders(),
-    body: JSON.stringify({ email }),
+    body: JSON.stringify({ email, role }),
   });
   const data = await response.json();
   if (!data.success) throw new Error(data.message);
@@ -256,6 +256,28 @@ export const removeNoteShare = async (noteId, userId) => {
     method: "POST",
     headers: getAuthHeaders(),
     body: JSON.stringify({ userId }),
+  });
+  const data = await response.json();
+  if (!data.success) throw new Error(data.message);
+  return data.data;
+};
+
+export const changeShareRole = async (collectionId, userId, role) => {
+  const response = await fetch(`${API_URL}/collections/${collectionId}/share/${userId}`, {
+    method: "PUT",
+    headers: getAuthHeaders(),
+    body: JSON.stringify({ role }),
+  });
+  const data = await response.json();
+  if (!data.success) throw new Error(data.message);
+  return data.data;
+};
+
+export const changeNoteShareRole = async (noteId, userId, role) => {
+  const response = await fetch(`${API_URL}/document/${noteId}/share/${userId}`, {
+    method: "PUT",
+    headers: getAuthHeaders(),
+    body: JSON.stringify({ role }),
   });
   const data = await response.json();
   if (!data.success) throw new Error(data.message);

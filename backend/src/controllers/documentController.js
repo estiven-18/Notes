@@ -5,12 +5,18 @@ import User from '../models/User.js';
 const canAccessNote = async (noteId, userId) => {
   const note = await Document.findById(noteId);
   if (!note) return null;
-  if (note.user.equals(userId)) return note;
+  if (note.user.equals(userId)) return { note, role: 'owner' };
   if (note.collectionId) {
     const collection = await Collection.findById(note.collectionId);
-    if (collection && collection.sharedWith.some((uid) => uid.equals(userId))) return note;
+    if (collection) {
+      const entry = collection.sharedWith.find((s) => s.user.equals(userId));
+      if (entry) return { note, role: entry.role };
+    }
   }
-  if (note.sharedWith && note.sharedWith.some((uid) => uid.equals(userId))) return note;
+  if (note.sharedWith) {
+    const entry = note.sharedWith.find((s) => s.user.equals(userId));
+    if (entry) return { note, role: entry.role };
+  }
   return null;
 };
 
@@ -77,11 +83,13 @@ export const deleteDocument = async (req, res) => {
 export const getNoteById = async (req, res) => {
   try {
     const { id } = req.params;
-    const note = await canAccessNote(id, req.user._id);
-    if (!note) {
+    const result = await canAccessNote(id, req.user._id);
+    if (!result) {
       return res.status(404).json({ success: false, message: 'Nota no encontrada' });
     }
-    res.json({ success: true, data: note });
+    const noteData = result.note.toObject();
+    noteData.userRole = result.role;
+    res.json({ success: true, data: noteData });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -101,9 +109,12 @@ export const updateNoteById = async (req, res) => {
     if (title !== undefined) updateFields.title = title;
     if (emoji !== undefined) updateFields.emoji = emoji;
     if (favorite !== undefined) updateFields['metadata.isFavorite'] = favorite;
-    const existing = await canAccessNote(id, req.user._id);
-    if (!existing) {
+    const result = await canAccessNote(id, req.user._id);
+    if (!result) {
       return res.status(404).json({ success: false, message: 'Nota no encontrada' });
+    }
+    if (result.role === 'viewer') {
+      return res.status(403).json({ success: false, message: 'No tienes permisos de edición en esta nota' });
     }
     const note = await Document.findByIdAndUpdate(
       id,
@@ -119,10 +130,11 @@ export const updateNoteById = async (req, res) => {
 export const toggleFavorite = async (req, res) => {
   try {
     const { id } = req.params;
-    const note = await canAccessNote(id, req.user._id);
-    if (!note) {
+    const result = await canAccessNote(id, req.user._id);
+    if (!result) {
       return res.status(404).json({ success: false, message: 'Nota no encontrada' });
     }
+    const note = result.note;
     note.metadata.isFavorite = !note.metadata.isFavorite;
     await note.save();
     res.json({ success: true, data: note });
@@ -134,7 +146,7 @@ export const toggleFavorite = async (req, res) => {
 export const shareNote = async (req, res) => {
   try {
     const { id } = req.params;
-    const { email } = req.body;
+    const { email, role } = req.body;
     if (!email) {
       return res.status(400).json({ success: false, message: "Email es requerido" });
     }
@@ -149,13 +161,13 @@ export const shareNote = async (req, res) => {
     if (!note) {
       return res.status(404).json({ success: false, message: "Nota no encontrada" });
     }
-    if (note.sharedWith && note.sharedWith.some((uid) => uid.equals(targetUser._id))) {
+    if (note.sharedWith && note.sharedWith.some((s) => s.user.equals(targetUser._id))) {
       return res.status(400).json({ success: false, message: "Ya está compartida con este usuario" });
     }
     if (!note.sharedWith) note.sharedWith = [];
-    note.sharedWith.push(targetUser._id);
+    note.sharedWith.push({ user: targetUser._id, role: role || "editor" });
     await note.save();
-    const populated = await Document.populate(note, { path: 'sharedWith', select: 'name email' });
+    const populated = await Document.populate(note, { path: 'sharedWith.user', select: 'name email' });
     res.json({ success: true, data: populated });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -170,9 +182,33 @@ export const removeNoteShare = async (req, res) => {
     if (!note) {
       return res.status(404).json({ success: false, message: "Nota no encontrada" });
     }
-    note.sharedWith = (note.sharedWith || []).filter((uid) => !uid.equals(userId));
+    note.sharedWith = (note.sharedWith || []).filter((s) => !s.user.equals(userId));
     await note.save();
-    const populated = await Document.populate(note, { path: 'sharedWith', select: 'name email' });
+    const populated = await Document.populate(note, { path: 'sharedWith.user', select: 'name email' });
+    res.json({ success: true, data: populated });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const changeNoteShareRole = async (req, res) => {
+  try {
+    const { id, userId } = req.params;
+    const { role } = req.body;
+    if (!role || !['viewer', 'editor'].includes(role)) {
+      return res.status(400).json({ success: false, message: "Rol inválido" });
+    }
+    const note = await Document.findOne({ _id: id, user: req.user._id });
+    if (!note) {
+      return res.status(404).json({ success: false, message: "Nota no encontrada" });
+    }
+    const entry = note.sharedWith.find((s) => s.user.equals(userId));
+    if (!entry) {
+      return res.status(404).json({ success: false, message: "Usuario no encontrado en la lista de compartidos" });
+    }
+    entry.role = role;
+    await note.save();
+    const populated = await Document.populate(note, { path: 'sharedWith.user', select: 'name email' });
     res.json({ success: true, data: populated });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -181,9 +217,9 @@ export const removeNoteShare = async (req, res) => {
 
 export const getSharedNotes = async (req, res) => {
   try {
-    const sharedColIds = await Collection.find({ sharedWith: req.user._id }).distinct('_id');
+    const sharedColIds = await Collection.find({ 'sharedWith.user': req.user._id }).distinct('_id');
     const notes = await Document.find({
-      sharedWith: req.user._id,
+      'sharedWith.user': req.user._id,
       collectionId: { $nin: sharedColIds },
     })
       .select('title emoji collectionId createdAt updatedAt')

@@ -3,6 +3,7 @@ import cors from "cors";
 import dotenv from "dotenv";
 import connectDB from "./config/database.js";
 import { setupSignalingServer } from "./config/signaling.js";
+import { migrateSharedWith } from "./utils/migrateSharedWith.js";
 import documentRoutes from "./routes/documentRoutes.js";
 import collectionRoutes from "./routes/collectionRoutes.js";
 import authRoutes from "./routes/authRoutes.js";
@@ -95,6 +96,9 @@ const startServer = async () => {
   try {
     // Conectar a MongoDB
     await connectDB();
+
+    // Migrar datos antiguos de sharedWith al nuevo formato [{user, role}]
+    await migrateSharedWith();
 
     // Iniciar servidor Express
     const server = app.listen(PORT, () => {

@@ -16,6 +16,7 @@ import {
   getSharedCollections,
   getSharedNotes,
   searchNotes,
+  changeShareRole,
 } from "../services/api";
 import { logout } from "../store/authSlice";
 import { useNavigate } from "react-router-dom";
@@ -334,20 +335,34 @@ const Sidebar = ({ activeNote, onSelectNote, onAddCollection, favoriteRefreshKey
     }
   };
 
-  const handleShareCollection = async (colId, email) => {
-    await shareCollection(colId, email);
+  const handleShareCollection = async (colId, email, role = 'editor') => {
+    await shareCollection(colId, email, role);
     setShareModalCol(null);
   };
 
   const handleRemoveShare = async (colId, userId) => {
     try {
-      await removeShare(colId, userId);
+      const updatedCol = await removeShare(colId, userId);
       await refreshCollections();
       await loadSharedCollections();
       setShareModalCol((prev) => {
         if (prev && prev._id === colId) {
-          const updated = collections.find((c) => c._id === colId);
-          return updated ? { ...prev, sharedWith: updated.sharedWith } : prev;
+          return { ...prev, sharedWith: updatedCol.sharedWith || [] };
+        }
+        return prev;
+      });
+    } catch (err) {
+      alert("Error: " + err.message);
+    }
+  };
+
+  const handleChangeShareRole = async (colId, userId, role) => {
+    try {
+      const updatedCol = await changeShareRole(colId, userId, role);
+      await refreshCollections();
+      setShareModalCol((prev) => {
+        if (prev && prev._id === colId) {
+          return { ...prev, sharedWith: updatedCol.sharedWith || [] };
         }
         return prev;
       });
@@ -1021,6 +1036,7 @@ const Sidebar = ({ activeNote, onSelectNote, onAddCollection, favoriteRefreshKey
             collection={shareModalCol}
             onShare={handleShareCollection}
             onRemoveShare={handleRemoveShare}
+            onChangeRole={handleChangeShareRole}
             onClose={async () => {
               setShareModalCol(null);
               await refreshCollections();

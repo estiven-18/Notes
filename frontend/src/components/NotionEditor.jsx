@@ -5,7 +5,7 @@ import { BlockNoteView } from "@blocknote/mantine";
 import "@blocknote/mantine/style.css";
 import * as Y from "yjs";
 import { WebsocketProvider } from "y-websocket";
-import { getNoteById, updateNoteById, toggleFavorite, shareNote, removeNoteShare } from "../services/api";
+import { getNoteById, updateNoteById, toggleFavorite, shareNote, removeNoteShare, changeNoteShareRole } from "../services/api";
 import SavingIndicator from "./SavingIndicator";
 import EmojiPicker from "./EmojiPicker";
 import ShareNoteModal from "./ShareNoteModal";
@@ -51,6 +51,7 @@ const EditorInner = ({ noteId, currentUser, onTitleChange, onEmojiChange, onFavo
   const [isFavorite, setIsFavorite] = useState(false);
   const [shareModalOpen, setShareModalOpen] = useState(false);
   const [noteSharedWith, setNoteSharedWith] = useState([]);
+  const [userRole, setUserRole] = useState('viewer');
   const titleTimeoutRef = useRef(null);
   const isSavingRef = useRef(false);
   const titleInputRef = useRef(null);
@@ -96,6 +97,14 @@ const EditorInner = ({ noteId, currentUser, onTitleChange, onEmojiChange, onFavo
       loadedContentRef.current = contentStr;
       setLastSaved(Date.now());
     } catch (err) {
+      if (err.message?.includes('No tienes permisos')) {
+        try {
+          const note = await getNoteById(noteId);
+          const role = note.userRole || 'viewer';
+          editor.isEditable = role === 'owner' || role === 'editor';
+          setUserRole(role);
+        } catch {/*ignore*/}
+      }
       console.error("Error al guardar:", err);
     } finally {
       isSavingRef.current = false;
@@ -109,11 +118,14 @@ const EditorInner = ({ noteId, currentUser, onTitleChange, onEmojiChange, onFavo
       try {
         const note = await getNoteById(noteId);
         if (cancelled) return;
+        const role = note.userRole || 'owner';
+        editor.isEditable = role === 'owner' || role === 'editor';
         startTransition(() => {
           setTitle(note.title === "Sin título" ? "" : note.title);
           setEmoji(note.emoji || null);
           setIsFavorite(note.metadata?.isFavorite || false);
           setNoteSharedWith(note.sharedWith || []);
+          setUserRole(role);
           setLastSaved(new Date(note.updatedAt).getTime());
         });
         if (note.content && note.content.length > 0) {
@@ -130,6 +142,12 @@ const EditorInner = ({ noteId, currentUser, onTitleChange, onEmojiChange, onFavo
     })();
     return () => { cancelled = true; };
   }, [editor, noteId]);
+
+  useEffect(() => {
+    if (editor && userRole) {
+      editor.isEditable = userRole === 'owner' || userRole === 'editor';
+    }
+  }, [editor, userRole]);
 
   useEffect(() => {
     if (!isLoading && (!title || title === 'Sin título') && titleInputRef.current) {
@@ -155,6 +173,14 @@ const EditorInner = ({ noteId, currentUser, onTitleChange, onEmojiChange, onFavo
         setLastSaved(Date.now());
       } catch (err) {
         console.error("Error al guardar título:", err);
+        if (err.message?.includes('No tienes permisos')) {
+          try {
+            const note = await getNoteById(noteId);
+            const role = note.userRole || 'viewer';
+            editor.isEditable = role === 'owner' || role === 'editor';
+            setUserRole(role);
+          } catch {/*ignore*/}
+        }
       }
     }, 500);
   };
@@ -167,6 +193,14 @@ const EditorInner = ({ noteId, currentUser, onTitleChange, onEmojiChange, onFavo
       setLastSaved(Date.now());
     } catch (err) {
       console.error("Error al guardar emoji:", err);
+      if (err.message?.includes('No tienes permisos')) {
+        try {
+          const note = await getNoteById(noteId);
+          const role = note.userRole || 'viewer';
+          editor.isEditable = role === 'owner' || role === 'editor';
+          setUserRole(role);
+        } catch {/*ignore*/}
+      }
     }
   };
 
@@ -181,13 +215,18 @@ const EditorInner = ({ noteId, currentUser, onTitleChange, onEmojiChange, onFavo
     }
   };
 
-  const handleShareNote = async (nid, email) => {
-    const updated = await shareNote(nid, email);
+  const handleShareNote = async (nid, email, role = 'editor') => {
+    const updated = await shareNote(nid, email, role);
     setNoteSharedWith(updated.sharedWith || []);
   };
 
   const handleRemoveNoteShare = async (nid, userId) => {
     const updated = await removeNoteShare(nid, userId);
+    setNoteSharedWith(updated.sharedWith || []);
+  };
+
+  const handleChangeNoteShareRole = async (nid, userId, role) => {
+    const updated = await changeNoteShareRole(nid, userId, role);
     setNoteSharedWith(updated.sharedWith || []);
   };
 
@@ -213,15 +252,17 @@ const EditorInner = ({ noteId, currentUser, onTitleChange, onEmojiChange, onFavo
               <path strokeLinecap="round" strokeLinejoin="round" d="M11.48 3.499a.562.562 0 0 1 1.04 0l2.125 5.111a.563.563 0 0 0 .475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 0 0-.182.557l1.285 5.385a.562.562 0 0 1-.84.61l-4.725-2.885a.562.562 0 0 0-.586 0L6.982 20.54a.562.562 0 0 1-.84-.61l1.285-5.386a.562.562 0 0 0-.182-.557l-4.204-3.602a.562.562 0 0 1 .321-.988l5.518-.442a.563.563 0 0 0 .475-.345L11.48 3.5Z" />
             </svg>
           </button>
-          <button
-            className="editor-star-btn"
-            onClick={() => setShareModalOpen(true)}
-            title="Compartir nota"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" width="16" height="16">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M7.217 10.907a2.25 2.25 0 1 0 0 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186 9.566-5.314m-9.566 7.5 9.566 5.314m0 0a2.25 2.25 0 1 0 3.935 2.186 2.25 2.25 0 0 0-3.935-2.186Zm0-12.814a2.25 2.25 0 1 0 3.933-2.185 2.25 2.25 0 0 0-3.933 2.185Z" />
-            </svg>
-          </button>
+          {userRole !== 'viewer' && (
+            <button
+              className="editor-star-btn"
+              onClick={() => setShareModalOpen(true)}
+              title="Compartir nota"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" width="16" height="16">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M7.217 10.907a2.25 2.25 0 1 0 0 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186 9.566-5.314m-9.566 7.5 9.566 5.314m0 0a2.25 2.25 0 1 0 3.935 2.186 2.25 2.25 0 0 0-3.935-2.186Zm0-12.814a2.25 2.25 0 1 0 3.933-2.185 2.25 2.25 0 0 0-3.933 2.185Z" />
+              </svg>
+            </button>
+          )}
           <span className="editor-topbar-brand">{emoji ? `${emoji} ` : ''}{title || 'Sin título'}</span>
         </div>
         <SavingIndicator lastSaved={lastSaved} />
@@ -238,19 +279,29 @@ const EditorInner = ({ noteId, currentUser, onTitleChange, onEmojiChange, onFavo
         ) : (
           <>
             <div className="editor-title-area">
-              <EmojiPicker currentEmoji={emoji} onSelect={handleEmojiSelect} />
-              <input
-                ref={titleInputRef}
-                className="editor-title-input"
-                type="text"
-                value={title}
-                onChange={handleTitleChange}
-                placeholder="Sin título"
-              />
+              {userRole === 'viewer' ? (
+                <>
+                  {emoji && <span className="editor-emoji-display">{emoji}</span>}
+                  <div className="editor-title-viewonly">{title || 'Sin título'}</div>
+                </>
+              ) : (
+                <>
+                  <EmojiPicker currentEmoji={emoji} onSelect={handleEmojiSelect} />
+                  <input
+                    ref={titleInputRef}
+                    className="editor-title-input"
+                    type="text"
+                    value={title}
+                    onChange={handleTitleChange}
+                    placeholder="Sin título"
+                  />
+                </>
+              )}
             </div>
             <div className="notion-editor-wrapper">
               <BlockNoteView
                 editor={editor}
+                editable={userRole === 'owner' || userRole === 'editor'}
                 theme="light"
                 className="notion-editor"
               />
@@ -265,6 +316,7 @@ const EditorInner = ({ noteId, currentUser, onTitleChange, onEmojiChange, onFavo
             note={{ _id: noteId, title, sharedWith: noteSharedWith }}
             onShare={handleShareNote}
             onRemoveShare={handleRemoveNoteShare}
+            onChangeRole={handleChangeNoteShareRole}
             onClose={() => setShareModalOpen(false)}
           />
         </ModalPortal>

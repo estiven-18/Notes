@@ -33,17 +33,17 @@ export const acceptInvitation = async (req, res) => {
     if (!collection) {
       return res.status(404).json({ success: false, message: "Colección no encontrada" });
     }
-    if (collection.sharedWith.some((uid) => uid.equals(req.user._id))) {
+    if (collection.sharedWith.some((s) => s.user.equals(req.user._id))) {
       notification.status = "accepted";
       notification.read = true;
       await notification.save();
       return res.json({ success: true, data: notification });
     }
-    collection.sharedWith.push(req.user._id);
+    collection.sharedWith.push({ user: req.user._id, role: notification.role || "editor" });
     await collection.save();
     await Document.updateMany(
-      { collectionId: collection._id, sharedWith: req.user._id },
-      { $pull: { sharedWith: req.user._id } },
+      { collectionId: collection._id, 'sharedWith.user': req.user._id },
+      { $pull: { sharedWith: { user: req.user._id } } },
     );
     notification.status = "accepted";
     notification.read = true;

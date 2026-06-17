@@ -6,7 +6,7 @@ import Notification from "../models/Notification.js";
 export const getCollections = async (req, res) => {
   try {
     const collections = await Collection.find({ user: req.user._id })
-      .populate('sharedWith', 'name email')
+      .populate('sharedWith.user', 'name email')
       .sort({ updatedAt: -1 });
     res.json({ success: true, data: collections });
   } catch (error) {
@@ -76,7 +76,7 @@ export const getNotesByCollection = async (req, res) => {
       return res.status(404).json({ success: false, message: "Colección no encontrada" });
     }
     const isOwner = collection.user.equals(req.user._id);
-    const isShared = collection.sharedWith.some((uid) => uid.equals(req.user._id));
+    const isShared = collection.sharedWith.some((s) => s.user.equals(req.user._id));
     if (!isOwner && !isShared) {
       return res.status(403).json({ success: false, message: "No tienes acceso a esta colección" });
     }
@@ -128,7 +128,7 @@ export const getFavoriteCollections = async (req, res) => {
 export const shareCollection = async (req, res) => {
   try {
     const { id } = req.params;
-    const { email } = req.body;
+    const { email, role } = req.body;
     if (!email) {
       return res.status(400).json({ success: false, message: "Email es requerido" });
     }
@@ -153,7 +153,7 @@ export const shareCollection = async (req, res) => {
     if (existingNotif) {
       return res.status(400).json({ success: false, message: "Ya enviaste una invitación a este usuario" });
     }
-    if (collection.sharedWith.some((uid) => uid.equals(targetUser._id))) {
+    if (collection.sharedWith.some((s) => s.user.equals(targetUser._id))) {
       return res.status(400).json({ success: false, message: "Ya está compartida con este usuario" });
     }
     const notification = await Notification.create({
@@ -162,6 +162,7 @@ export const shareCollection = async (req, res) => {
       to: targetUser._id,
       collection: id,
       status: "pending",
+      role: role || "editor",
     });
     const populated = await Notification.populate(notification, [
       { path: "from", select: "name email" },
@@ -181,9 +182,33 @@ export const removeShare = async (req, res) => {
     if (!collection) {
       return res.status(404).json({ success: false, message: "Colección no encontrada" });
     }
-    collection.sharedWith = collection.sharedWith.filter((uid) => !uid.equals(userId));
+    collection.sharedWith = collection.sharedWith.filter((s) => !s.user.equals(userId));
     await collection.save();
-    const populated = await Collection.populate(collection, { path: 'sharedWith', select: 'name email' });
+    const populated = await Collection.populate(collection, { path: 'sharedWith.user', select: 'name email' });
+    res.json({ success: true, data: populated });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const changeShareRole = async (req, res) => {
+  try {
+    const { id, userId } = req.params;
+    const { role } = req.body;
+    if (!role || !['viewer', 'editor'].includes(role)) {
+      return res.status(400).json({ success: false, message: "Rol inválido" });
+    }
+    const collection = await Collection.findOne({ _id: id, user: req.user._id });
+    if (!collection) {
+      return res.status(404).json({ success: false, message: "Colección no encontrada" });
+    }
+    const entry = collection.sharedWith.find((s) => s.user.equals(userId));
+    if (!entry) {
+      return res.status(404).json({ success: false, message: "Usuario no encontrado en la lista de compartidos" });
+    }
+    entry.role = role;
+    await collection.save();
+    const populated = await Collection.populate(collection, { path: 'sharedWith.user', select: 'name email' });
     res.json({ success: true, data: populated });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -192,9 +217,9 @@ export const removeShare = async (req, res) => {
 
 export const getSharedCollections = async (req, res) => {
   try {
-    const collections = await Collection.find({ sharedWith: req.user._id })
+    const collections = await Collection.find({ 'sharedWith.user': req.user._id })
       .populate('user', 'name email')
-      .populate('sharedWith', 'name email')
+      .populate('sharedWith.user', 'name email')
       .sort({ updatedAt: -1 });
     const result = await Promise.all(
       collections.map(async (col) => {
@@ -228,7 +253,7 @@ export const search = async (req, res) => {
     const regex = new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
 
     const userCollectionIds = await Collection.find({ user: req.user._id }).distinct('_id');
-    const sharedCollectionIds = await Collection.find({ sharedWith: req.user._id }).distinct('_id');
+    const sharedCollectionIds = await Collection.find({ 'sharedWith.user': req.user._id }).distinct('_id');
     const allIds = [...userCollectionIds, ...sharedCollectionIds];
 
     const matchingCollections = await Collection.find({

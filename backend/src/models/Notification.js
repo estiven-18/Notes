@@ -21,6 +21,11 @@ const notificationSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: "Collection",
   },
+  role: {
+    type: String,
+    enum: ["viewer", "editor"],
+    default: "editor",
+  },
   status: {
     type: String,
     enum: ["pending", "accepted", "rejected"],

@@ -17,8 +17,8 @@ const collectionSchema = new mongoose.Schema({
     default: false
   },
   sharedWith: [{
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User'
+    user: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    role: { type: String, enum: ['viewer', 'editor'], default: 'editor' }
   }],
   createdAt: {
     type: Date,

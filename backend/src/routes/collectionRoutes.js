@@ -10,6 +10,7 @@ import {
   getFavoriteCollections,
   shareCollection,
   removeShare,
+  changeShareRole,
   getSharedCollections,
   search,
 } from '../controllers/collectionController.js';
@@ -30,6 +31,7 @@ router.get('/:id/notes', getNotesByCollection);
 router.post('/:id/notes', createNote);
 router.post('/:id/favorite', toggleCollectionFavorite);
 router.post('/:id/share', shareCollection);
+router.put('/:id/share/:userId', changeShareRole);
 router.post('/:id/unshare', removeShare);
 
 export default router;

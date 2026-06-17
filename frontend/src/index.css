@@ -430,7 +430,7 @@ body {
 .shared-user-row {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 8px;
   padding: 4px 0;
   font-size: 13px;
 }
@@ -449,6 +449,43 @@ body {
   cursor: pointer;
   font-size: 16px;
   padding: 0 4px;
+  flex-shrink: 0;
+}
+
+.shared-user-role-select {
+  font-size: 12px;
+  padding: 2px 4px;
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  background: white;
+  color: var(--color-ink-secondary);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.share-form {
+  margin-bottom: 12px;
+}
+
+.share-row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.share-row .modal-input {
+  flex: 1;
+  min-width: 0;
+}
+
+.modal-select {
+  padding: 6px 8px;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: white;
+  font-size: 13px;
+  color: var(--color-ink-primary);
+  cursor: pointer;
   flex-shrink: 0;
 }
 
@@ -768,6 +805,24 @@ body {
 
 .editor-title-area:hover .emoji-add-btn {
   opacity: 1;
+}
+
+.editor-title-viewonly {
+  display: block;
+  font-size: 50px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+  color: var(--color-ink-primary);
+  padding: 4px 0;
+  min-height: 60px;
+}
+
+.editor-emoji-display {
+  font-size: 78px;
+  line-height: 1;
+  display: block;
+  margin-bottom: 8px;
 }
 
 .editor-title-input {

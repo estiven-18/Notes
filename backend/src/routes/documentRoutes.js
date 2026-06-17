@@ -10,6 +10,7 @@ import {
   getFavorites,
   shareNote,
   removeNoteShare,
+  changeNoteShareRole,
   getSharedNotes,
 } from '../controllers/documentController.js';
 import { auth } from '../middleware/auth.js';
@@ -27,6 +28,7 @@ router.get('/shared/with-me', getSharedNotes);
 router.get('/favorites/all', getFavorites);
 router.post('/:id/favorite', toggleFavorite);
 router.post('/:id/share', shareNote);
+router.put('/:id/share/:userId', changeNoteShareRole);
 router.post('/:id/unshare', removeNoteShare);
 router.get('/:id', getNoteById);
 router.put('/:id', updateNoteById);
