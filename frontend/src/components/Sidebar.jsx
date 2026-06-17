@@ -21,6 +21,7 @@ import { logout } from "../store/authSlice";
 import { useNavigate } from "react-router-dom";
 import CreateModal from "./CreateModal";
 import ShareCollectionModal from "./ShareCollectionModal";
+import NotificationBell from "./NotificationBell";
 
 const Sidebar = ({ activeNote, onSelectNote, onAddCollection, favoriteRefreshKey }) => {
   const dispatch = useDispatch();
@@ -334,12 +335,7 @@ const Sidebar = ({ activeNote, onSelectNote, onAddCollection, favoriteRefreshKey
 
   const handleShareCollection = async (colId, email) => {
     await shareCollection(colId, email);
-    await refreshCollections();
-    await loadSharedCollections();
-    setShareModalCol((prev) => {
-      const updated = collections.find((c) => c._id === colId) || prev;
-      return updated ? { ...prev, ...updated } : prev;
-    });
+    setShareModalCol(null);
   };
 
   const handleRemoveShare = async (colId, userId) => {
@@ -552,11 +548,13 @@ const Sidebar = ({ activeNote, onSelectNote, onAddCollection, favoriteRefreshKey
 
   return (
     <aside className="sidebar">
-      <div className="sidebar-header">
+      <div className="sidebar-header" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
         <span className="sidebar-title">Notes</span>
+        <div style={{ flex: 1 }} />
+        <NotificationBell onRefresh={refreshCollections} />
         <button
           onClick={() => navigate('/profile')}
-          style={{ marginLeft: 'auto', background: 'none', border: 'none', color: 'var(--color-gray-500)', cursor: 'pointer', fontSize: 12, padding: '4px 8px' }}
+          style={{ background: 'none', border: 'none', color: 'var(--color-gray-500)', cursor: 'pointer', fontSize: 12, padding: '4px 8px' }}
           title="Editar perfil"
         >
           Perfil

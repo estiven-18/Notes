@@ -1012,6 +1012,201 @@ body {
   margin: 1em 0;
 }
 
+/* NOTIFICATION BELL */
+.notification-bell-wrapper {
+  position: static;
+}
+
+.notification-bell {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  padding: 4px;
+  color: var(--color-ink-faint);
+  display: flex;
+  align-items: center;
+  border-radius: 8px;
+  transition: background 0.15s, color 0.15s;
+}
+
+.notification-bell:hover {
+  background: var(--color-gray-100);
+  color: var(--color-ink-muted);
+}
+
+.notification-badge {
+  position: absolute;
+  top: 0;
+  right: 0;
+  background: #e53e3e;
+  color: white;
+  font-size: 9px;
+  font-weight: 700;
+  min-width: 16px;
+  height: 16px;
+  border-radius: 9999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 4px;
+  line-height: 1;
+}
+
+.notification-modal {
+  width: 420px;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.notification-modal-body {
+  overflow-y: auto;
+  max-height: 60vh;
+}
+
+.notification-mark-all-read {
+  border: none;
+  background: var(--color-gray-100);
+  cursor: pointer;
+  font-size: 11px;
+  color: var(--color-primary);
+  font-weight: 500;
+  padding: 4px 10px;
+  border-radius: 8px;
+  font-family: inherit;
+  transition: background 0.15s;
+  margin-left: auto;
+  margin-right: 8px;
+}
+
+.notification-mark-all-read:hover {
+  background: var(--color-gray-200);
+}
+
+.notification-empty {
+  padding: 24px 14px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--color-ink-faint);
+}
+
+.notification-item {
+  padding: 10px 14px;
+  cursor: pointer;
+  transition: background 0.1s;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  border-bottom: 1px solid var(--color-gray-100);
+}
+
+.notification-item:last-child {
+  border-bottom: none;
+}
+
+.notification-item:hover {
+  background: var(--color-gray-100);
+}
+
+.notification-item.unread {
+  background: #f0f7ff;
+}
+
+.notification-item.unread:hover {
+  background: #e4f0fa;
+}
+
+.notification-item-content {
+  font-size: 12px;
+  color: var(--color-ink-secondary);
+  line-height: 1.4;
+}
+
+.notification-item-content strong {
+  font-weight: 600;
+}
+
+.notification-item-footer {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 2px;
+}
+
+.notification-time {
+  font-size: 11px;
+  color: var(--color-ink-faint);
+}
+
+.notification-read-btn {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  padding: 2px;
+  color: var(--color-ink-faint);
+  display: flex;
+  align-items: center;
+  border-radius: 4px;
+  transition: color 0.15s, background 0.15s;
+  margin-left: auto;
+}
+
+.notification-read-btn:hover {
+  color: var(--color-primary);
+  background: var(--color-gray-100);
+}
+
+.notification-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.notification-btn {
+  padding: 4px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  cursor: pointer;
+  border: 1px solid var(--color-hairline);
+  font-family: inherit;
+  font-weight: 500;
+  transition: background 0.15s;
+}
+
+.notification-btn-accept {
+  background: var(--color-primary);
+  color: white;
+  border-color: var(--color-primary);
+}
+
+.notification-btn-accept:hover {
+  background: var(--color-primary-active);
+}
+
+.notification-btn-reject {
+  background: transparent;
+  color: var(--color-ink-muted);
+}
+
+.notification-btn-reject:hover {
+  background: var(--color-gray-100);
+}
+
+.notification-status {
+  font-size: 11px;
+  font-weight: 500;
+  margin-top: 4px;
+  display: inline-block;
+}
+
+.notification-status.accepted {
+  color: var(--color-accent-green);
+}
+
+.notification-status.rejected {
+  color: var(--color-ink-faint);
+}
+
 ::selection {
   background: var(--color-primary);
   color: white;

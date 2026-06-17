@@ -6,6 +6,7 @@ import { setupSignalingServer } from "./config/signaling.js";
 import documentRoutes from "./routes/documentRoutes.js";
 import collectionRoutes from "./routes/collectionRoutes.js";
 import authRoutes from "./routes/authRoutes.js";
+import notificationRoutes from "./routes/notificationRoutes.js";
 
 // Cargar variables de entorno
 dotenv.config();
@@ -31,6 +32,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use("/api/document", documentRoutes);
 app.use("/api/collections", collectionRoutes);
 app.use("/api/auth", authRoutes);
+app.use("/api/notifications", notificationRoutes);
 
 /**
  * Health check endpoint

@@ -1,6 +1,7 @@
 import Collection from "../models/Collection.js";
 import Document from "../models/Document.js";
 import User from "../models/User.js";
+import Notification from "../models/Notification.js";
 
 export const getCollections = async (req, res) => {
   try {
@@ -142,12 +143,30 @@ export const shareCollection = async (req, res) => {
     if (!collection) {
       return res.status(404).json({ success: false, message: "Colección no encontrada" });
     }
+    const existingNotif = await Notification.findOne({
+      type: "share_invitation",
+      from: req.user._id,
+      to: targetUser._id,
+      collection: id,
+      status: "pending",
+    });
+    if (existingNotif) {
+      return res.status(400).json({ success: false, message: "Ya enviaste una invitación a este usuario" });
+    }
     if (collection.sharedWith.some((uid) => uid.equals(targetUser._id))) {
       return res.status(400).json({ success: false, message: "Ya está compartida con este usuario" });
     }
-    collection.sharedWith.push(targetUser._id);
-    await collection.save();
-    const populated = await Collection.populate(collection, { path: 'sharedWith', select: 'name email' });
+    const notification = await Notification.create({
+      type: "share_invitation",
+      from: req.user._id,
+      to: targetUser._id,
+      collection: id,
+      status: "pending",
+    });
+    const populated = await Notification.populate(notification, [
+      { path: "from", select: "name email" },
+      { path: "collection", select: "name" },
+    ]);
     res.json({ success: true, data: populated });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });

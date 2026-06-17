@@ -270,3 +270,52 @@ export const getSharedNotes = async () => {
   if (!data.success) throw new Error(data.message);
   return data.data;
 };
+
+export const getNotifications = async () => {
+  const response = await fetch(`${API_URL}/notifications`, {
+    headers: getAuthHeaders(),
+  });
+  const data = await response.json();
+  if (!data.success) throw new Error(data.message);
+  return data.data;
+};
+
+export const acceptInvitation = async (notificationId) => {
+  const response = await fetch(`${API_URL}/notifications/${notificationId}/accept`, {
+    method: "POST",
+    headers: getAuthHeaders(),
+  });
+  const data = await response.json();
+  if (!data.success) throw new Error(data.message);
+  return data.data;
+};
+
+export const rejectInvitation = async (notificationId) => {
+  const response = await fetch(`${API_URL}/notifications/${notificationId}/reject`, {
+    method: "POST",
+    headers: getAuthHeaders(),
+  });
+  const data = await response.json();
+  if (!data.success) throw new Error(data.message);
+  return data.data;
+};
+
+export const markNotificationRead = async (notificationId) => {
+  const response = await fetch(`${API_URL}/notifications/${notificationId}/read`, {
+    method: "POST",
+    headers: getAuthHeaders(),
+  });
+  const data = await response.json();
+  if (!data.success) throw new Error(data.message);
+  return data.data;
+};
+
+export const markAllNotificationsRead = async () => {
+  const response = await fetch(`${API_URL}/notifications/read-all`, {
+    method: "POST",
+    headers: getAuthHeaders(),
+  });
+  const data = await response.json();
+  if (!data.success) throw new Error(data.message);
+  return data;
+};
