@@ -17,6 +17,7 @@ import {
   getSharedNotes,
   searchNotes,
   changeShareRole,
+  getTrashItems,
 } from "../services/api";
 import { logout } from "../store/authSlice";
 import { useNavigate } from "react-router-dom";
@@ -25,7 +26,7 @@ import ShareCollectionModal from "./ShareCollectionModal";
 import NotificationBell from "./NotificationBell";
 import ModalPortal from "./ModalPortal";
 
-const Sidebar = ({ activeNote, onSelectNote, onAddCollection, favoriteRefreshKey }) => {
+const Sidebar = ({ activeNote, onSelectNote, onAddCollection, favoriteRefreshKey, onShowTrash, showTrash, trashRefreshKey }) => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const activeNoteId = activeNote?._id;
@@ -72,6 +73,10 @@ const Sidebar = ({ activeNote, onSelectNote, onAddCollection, favoriteRefreshKey
     try { const s = JSON.parse(localStorage.getItem('sidebarSections')); if (s?.sharedOpen !== undefined) return s.sharedOpen; } catch {/* ignore */}
     return true;
   });
+  const [expandedShared, setExpandedShared] = useState(() => {
+    try { const saved = JSON.parse(localStorage.getItem('sidebarExpandedShared')); if (saved) return saved; } catch { /* ignore */ }
+    return {};
+  });
   const [sharedNotes, setSharedNotes] = useState([]);
   const [sharedNotesOpen, setSharedNotesOpen] = useState(() => {
     try { const s = JSON.parse(localStorage.getItem('sidebarSections')); if (s?.sharedNotesOpen !== undefined) return s.sharedNotesOpen; } catch {/* ignore */}
@@ -81,10 +86,10 @@ const Sidebar = ({ activeNote, onSelectNote, onAddCollection, favoriteRefreshKey
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState({ collections: [], notes: [] });
   const [searching, setSearching] = useState(false);
+  const [trashCount, setTrashCount] = useState(0);
 
   const publicCollections = useMemo(() => collections.filter(c => c.sharedWith?.length > 0), [collections]);
   const privateCollections = useMemo(() => collections.filter(c => !c.sharedWith || c.sharedWith.length === 0), [collections]);
-  const allCollections = useMemo(() => [...collections, ...sharedCollections], [collections, sharedCollections]);
 
   const loadCollections = useCallback(async () => {
     try {
@@ -114,7 +119,20 @@ const Sidebar = ({ activeNote, onSelectNote, onAddCollection, favoriteRefreshKey
       }
     });
     return () => { cancelled = true; };
-  }, [loadCollections]);
+  }, [loadCollections, trashRefreshKey]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const data = await getTrashItems();
+        if (!cancelled) setTrashCount((data.notes?.length || 0) + (data.collections?.length || 0));
+      } catch {
+        if (!cancelled) setTrashCount(0);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [trashRefreshKey]);
 
   const refreshFavorites = useCallback(async () => {
     try {
@@ -183,7 +201,8 @@ const Sidebar = ({ activeNote, onSelectNote, onAddCollection, favoriteRefreshKey
 
   useEffect(() => {
     localStorage.setItem('sidebarExpanded', JSON.stringify(expanded));
-  }, [expanded]);
+    localStorage.setItem('sidebarExpandedShared', JSON.stringify(expandedShared));
+  }, [expanded, expandedShared]);
 
   useEffect(() => {
     localStorage.setItem('sidebarSections', JSON.stringify({
@@ -244,6 +263,19 @@ const Sidebar = ({ activeNote, onSelectNote, onAddCollection, favoriteRefreshKey
   const toggleExpandPrivadas = async (colId) => {
     const next = { ...expandedPrivadas, [colId]: !expandedPrivadas[colId] };
     setExpandedPrivadas(next);
+    if (next[colId] && (!notesMap[colId] || notesMap[colId].length === 0)) {
+      try {
+        const notes = await getNotesByCollection(colId);
+        setNotesMap((prev) => ({ ...prev, [colId]: notes }));
+      } catch {
+        setNotesMap((prev) => ({ ...prev, [colId]: [] }));
+      }
+    }
+  };
+
+  const toggleExpandShared = async (colId) => {
+    const next = { ...expandedShared, [colId]: !expandedShared[colId] };
+    setExpandedShared(next);
     if (next[colId] && (!notesMap[colId] || notesMap[colId].length === 0)) {
       try {
         const notes = await getNotesByCollection(colId);
@@ -381,64 +413,6 @@ const Sidebar = ({ activeNote, onSelectNote, onAddCollection, favoriteRefreshKey
       alert("Error: " + err.message);
     }
   };
-
-  const renderSharedCollection = (col, expandMap = expanded, onToggle = toggleExpand) => (
-    <div key={col._id} className="sidebar-collection">
-      <div
-        className="sidebar-collection-header"
-        onClick={() => onToggle(col._id)}
-      >
-        <span className={`sidebar-chevron ${expandMap[col._id] ? "open" : ""}`}>
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" width="12" height="12">
-            <path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
-          </svg>
-        </span>
-        <span className="sidebar-collection-icon">
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" width="16" height="16">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M18 7.5v3m0 0v3m0-3h3m-3 0h-3m-2.25-4.125a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0ZM3 19.235v-.11a6.375 6.375 0 0 1 12.75 0v.109A12.318 12.318 0 0 1 9.374 21c-2.331 0-4.512-.645-6.374-1.766Z" />
-          </svg>
-        </span>
-        <span className="sidebar-collection-name">{col.name}</span>
-        <span className="shared-badge" title={`Compartido por ${col.user?.name || 'usuario'}`}>compartido</span>
-      </div>
-      {expandMap[col._id] && (
-        <div className="sidebar-notes">
-          {(col.notes || []).map((note) => {
-            const isActive = activeNoteId === note._id;
-            const rawTitle = isActive ? activeNote.title : note.title;
-            const displayTitle = rawTitle || 'Sin título';
-            const noteEmoji = isActive ? activeNote.emoji : note.emoji;
-            return (
-              <div
-                key={note._id}
-                className={`sidebar-note ${isActive ? "active" : ""}`}
-                onClick={() => {
-                  onSelectNote({
-                    _id: note._id,
-                    title: note.title || 'Sin título',
-                    emoji: note.emoji != null ? note.emoji : null,
-                    updatedAt: note.updatedAt,
-                    collectionId: col._id,
-                  });
-                }}
-              >
-                {noteEmoji ? (
-                  <span className="sidebar-note-icon">{noteEmoji}</span>
-                ) : noteEmoji === null ? (
-                  <span className="sidebar-note-icon">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" width="14" height="14">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
-                    </svg>
-                  </span>
-                ) : null}
-                <span className="sidebar-note-title">{displayTitle}</span>
-              </div>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
 
   const renderCollection = (col, showCreate, expandMap = expanded, onToggle = toggleExpand) => (
     <div key={col._id} className="sidebar-collection">
@@ -682,12 +656,11 @@ const Sidebar = ({ activeNote, onSelectNote, onAddCollection, favoriteRefreshKey
         <nav className="sidebar-nav">
           {loading ? (
           <div className="sidebar-loading">Cargando...</div>
-        ) : allCollections.length === 0 ? (
+        ) : collections.length === 0 ? (
           <div className="sidebar-empty">Crea tu primera colección</div>
         ) : (
           <>
             {collections.map(col => renderCollection(col, true))}
-            {sharedCollections.map(col => renderSharedCollection(col, expanded, toggleExpand))}
           </>
         )}
         </nav>
@@ -912,9 +885,9 @@ const Sidebar = ({ activeNote, onSelectNote, onAddCollection, favoriteRefreshKey
                 <div key={col._id} className="sidebar-collection">
                   <div
                     className="sidebar-collection-header"
-                    onClick={() => toggleExpand(col._id)}
+                    onClick={() => toggleExpandShared(col._id)}
                   >
-                    <span className={`sidebar-chevron ${expanded[col._id] ? "open" : ""}`}>
+                    <span className={`sidebar-chevron ${expandedShared[col._id] ? "open" : ""}`}>
                       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" width="12" height="12">
                         <path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
                       </svg>
@@ -927,7 +900,7 @@ const Sidebar = ({ activeNote, onSelectNote, onAddCollection, favoriteRefreshKey
                     <span className="sidebar-collection-name">{col.name}</span>
                     <span className="shared-badge" title={`Compartido por ${col.user?.name || 'usuario'}`}>compartido</span>
                   </div>
-      {expanded[col._id] && (
+      {expandedShared[col._id] && (
         <div className="sidebar-notes">
                       {(col.notes || []).map((note) => {
                         const isActive = activeNoteId === note._id;
@@ -1018,6 +991,30 @@ const Sidebar = ({ activeNote, onSelectNote, onAddCollection, favoriteRefreshKey
           )}
         </>
       )}
+
+      <div className="sidebar-trash-section">
+        <button
+          className={`sidebar-trash-btn ${showTrash ? 'active' : ''}`}
+          onClick={onShowTrash}
+          title="Papelera"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" width="16" height="16">
+            <path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
+          </svg>
+          <span>Papelera</span>
+          {trashCount > 0 && <span className="trash-count">{trashCount}</span>}
+        </button>
+        <button
+          className="sidebar-logout-btn"
+          onClick={() => dispatch(logout())}
+          title="Cerrar sesión"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" width="16" height="16">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15m3 0 3-3m0 0-3-3m3 3H9" />
+          </svg>
+          <span>Salir</span>
+        </button>
+      </div>
 
       {showCollectionModal && (
         <ModalPortal>

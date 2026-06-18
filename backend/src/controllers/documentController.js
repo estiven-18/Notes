@@ -70,11 +70,55 @@ export const createDocument = async (req, res) => {
 export const deleteDocument = async (req, res) => {
   try {
     const { id } = req.params;
-    const document = await Document.findOneAndDelete({ _id: id, user: req.user._id });
+    const document = await Document.findOne({ _id: id, user: req.user._id });
     if (!document) {
       return res.status(404).json({ success: false, message: 'Documento no encontrado' });
     }
-    res.json({ success: true, message: 'Documento eliminado' });
+    document.isDeleted = true;
+    document.deletedAt = new Date();
+    document.deletedBy = req.user._id;
+    document.isFavorite = false;
+    document.sharedWith = [];
+    await document.save();
+    res.json({ success: true, message: 'Documento movido a la papelera' });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const restoreDocument = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const document = await Document.findOne({ _id: id, isDeleted: true });
+    if (!document) {
+      return res.status(404).json({ success: false, message: 'Documento no encontrado en la papelera' });
+    }
+    if (document.collectionId && document.collectionId != null) {
+      const parentCollection = await Collection.findOne({ _id: document.collectionId, isDeleted: true });
+      if (parentCollection) {
+        return res.status(400).json({ success: false, message: 'Restaura la colección para recuperar esta nota' });
+      }
+    }
+    document.isDeleted = false;
+    document.deletedAt = null;
+    document.deletedBy = null;
+    document.isFavorite = false;
+    document.sharedWith = [];
+    await document.save();
+    res.json({ success: true, data: document });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const permanentDeleteDocument = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const document = await Document.findOneAndDelete({ _id: id, isDeleted: true });
+    if (!document) {
+      return res.status(404).json({ success: false, message: 'Documento no encontrado en la papelera' });
+    }
+    res.json({ success: true, message: 'Documento eliminado permanentemente' });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -83,6 +127,13 @@ export const deleteDocument = async (req, res) => {
 export const getNoteById = async (req, res) => {
   try {
     const { id } = req.params;
+    const note = await Document.findById(id).populate('deletedBy', 'name');
+    if (!note) {
+      return res.status(404).json({ success: false, message: 'Nota no encontrada' });
+    }
+    if (note.isDeleted) {
+      return res.json({ success: true, data: { ...note.toObject(), userRole: 'trashed', isDeleted: true, deletedAt: note.deletedAt, deletedByName: note.deletedBy?.name } });
+    }
     const result = await canAccessNote(id, req.user._id);
     if (!result) {
       return res.status(404).json({ success: false, message: 'Nota no encontrada' });
@@ -98,7 +149,7 @@ export const getNoteById = async (req, res) => {
 export const updateNoteById = async (req, res) => {
   try {
     const { id } = req.params;
-    const { content, title, emoji, favorite } = req.body;
+    const { content, title, emoji, coverUrl, coverPosition, favorite } = req.body;
     const updateFields = {};
     if (content !== undefined) {
       if (!Array.isArray(content)) {
@@ -108,6 +159,8 @@ export const updateNoteById = async (req, res) => {
     }
     if (title !== undefined) updateFields.title = title;
     if (emoji !== undefined) updateFields.emoji = emoji;
+    if (coverUrl !== undefined) updateFields.coverUrl = coverUrl;
+    if (coverPosition !== undefined) updateFields.coverPosition = coverPosition;
     if (favorite !== undefined) updateFields['metadata.isFavorite'] = favorite;
     const result = await canAccessNote(id, req.user._id);
     if (!result) {
@@ -240,16 +293,90 @@ export const getSharedNotes = async (req, res) => {
 
 export const getFavorites = async (req, res) => {
   try {
-    const favCollections = await Collection.find({ user: req.user._id, isFavorite: true }).select('_id');
+    const favCollections = await Collection.find({ user: req.user._id, isFavorite: true, isDeleted: false }).select('_id');
     const favColIds = favCollections.map((c) => c._id);
     const notes = await Document.find({
       user: req.user._id,
       'metadata.isFavorite': true,
       collectionId: { $nin: favColIds },
+      isDeleted: false,
     })
       .select('title emoji collectionId updatedAt')
       .sort({ updatedAt: -1 });
     res.json({ success: true, data: notes });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const getTrashItems = async (req, res) => {
+  try {
+    const notes = await Document.find({ user: req.user._id, isDeleted: true })
+      .select('title emoji deletedAt collectionId')
+      .populate('collectionId', 'name isDeleted')
+      .sort({ deletedAt: -1 });
+    const collections = await Collection.find({ user: req.user._id, isDeleted: true })
+      .select('name deletedAt')
+      .sort({ deletedAt: -1 });
+    const notesWithParentInfo = notes.map(note => {
+      const obj = note.toObject();
+      obj.parentDeleted = !!(obj.collectionId && obj.collectionId.isDeleted);
+      return obj;
+    });
+    res.json({ success: true, data: { notes: notesWithParentInfo, collections } });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const publishNote = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const document = await Document.findOne({ _id: id, user: req.user._id });
+    if (!document) {
+      return res.status(404).json({ success: false, message: 'Nota no encontrada' });
+    }
+    if (document.isPublic) {
+      return res.status(400).json({ success: false, message: 'La nota ya está publicada' });
+    }
+    document.isPublic = true;
+    document.publicId = crypto.randomUUID().slice(0, 10);
+    await document.save();
+    res.json({ success: true, data: { publicId: document.publicId, publicUrl: `/public/${document.publicId}` } });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const unpublishNote = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const document = await Document.findOne({ _id: id, user: req.user._id });
+    if (!document) {
+      return res.status(404).json({ success: false, message: 'Nota no encontrada' });
+    }
+    if (!document.isPublic) {
+      return res.status(400).json({ success: false, message: 'La nota no está publicada' });
+    }
+    document.isPublic = false;
+    document.publicId = null;
+    await document.save();
+    res.json({ success: true, message: 'Nota despublicada' });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const getPublicNote = async (req, res) => {
+  try {
+    const { publicId } = req.params;
+    const document = await Document.findOne({ publicId, isPublic: true, isDeleted: false })
+      .select('title emoji coverUrl coverPosition content publicId updatedAt')
+      .populate('user', 'name');
+    if (!document) {
+      return res.status(404).json({ success: false, message: 'Nota pública no encontrada' });
+    }
+    res.json({ success: true, data: document });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

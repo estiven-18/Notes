@@ -4,6 +4,7 @@ import dotenv from "dotenv";
 import connectDB from "./config/database.js";
 import { setupSignalingServer } from "./config/signaling.js";
 import { migrateSharedWith } from "./utils/migrateSharedWith.js";
+import { setupTrashCleanup } from "./utils/trashCleanup.js";
 import documentRoutes from "./routes/documentRoutes.js";
 import collectionRoutes from "./routes/collectionRoutes.js";
 import authRoutes from "./routes/authRoutes.js";
@@ -104,6 +105,9 @@ const startServer = async () => {
 
     // Migrar datos antiguos de sharedWith al nuevo formato [{user, role}]
     await migrateSharedWith();
+
+    // Configurar limpieza automática de papelera (30 días)
+    setupTrashCleanup();
 
     // Iniciar servidor Express
     const server = app.listen(PORT, () => {

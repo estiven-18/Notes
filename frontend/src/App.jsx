@@ -3,9 +3,11 @@ import { useSelector, useDispatch } from 'react-redux';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import Sidebar from './components/Sidebar';
 import NotionEditor from './components/NotionEditor';
+import TrashView from './components/TrashView';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import Profile from './pages/Profile';
+import PublicNote from './pages/PublicNote';
 import ProtectedRoute from './components/ProtectedRoute';
 import { verifyToken } from './store/authSlice';
 import { getNoteById } from './services/api';
@@ -18,7 +20,9 @@ function Home() {
       return null;
     }
   });
+  const [showTrash, setShowTrash] = useState(false);
   const [favoriteRefreshKey, setFavoriteRefreshKey] = useState(0);
+  const [trashRefreshKey, setTrashRefreshKey] = useState(0);
 
   useEffect(() => {
     if (activeNote) {
@@ -33,8 +37,12 @@ function Home() {
   }, [activeNote]);
 
   useEffect(() => {
-    if (activeNote?._id) {
+    if (activeNote?._id && !activeNote.isDeleted) {
       getNoteById(activeNote._id).then((note) => {
+        if (note.isDeleted) {
+          setShowTrash(true);
+          return;
+        }
         setActiveNote((prev) =>
           prev && prev._id === note._id
             ? {
@@ -53,7 +61,12 @@ function Home() {
   }, []);
 
   const handleSelectNote = useCallback((note) => {
-    setActiveNote(note);
+    if (note?.isDeleted) {
+      setShowTrash(true);
+    } else {
+      setShowTrash(false);
+      setActiveNote(note);
+    }
   }, []);
 
   const handleTitleChange = useCallback((noteId, newTitle) => {
@@ -68,12 +81,34 @@ function Home() {
     setFavoriteRefreshKey((k) => k + 1);
   }, []);
 
+  const handleShowTrash = useCallback(() => {
+    setShowTrash(true);
+    setActiveNote(null);
+    localStorage.removeItem('activeNote');
+  }, []);
+
+  const handleHideTrash = useCallback(() => {
+    setShowTrash(false);
+  }, []);
+
+  const handleTrashRefresh = useCallback(() => {
+    setTrashRefreshKey((k) => k + 1);
+  }, []);
+
+  const handleNoteRestored = useCallback((note) => {
+    setShowTrash(false);
+    setActiveNote(note);
+  }, []);
+
   return (
     <div className="app-layout">
       <Sidebar
         activeNote={activeNote}
         onSelectNote={handleSelectNote}
         favoriteRefreshKey={favoriteRefreshKey}
+        onShowTrash={handleShowTrash}
+        showTrash={showTrash}
+        trashRefreshKey={trashRefreshKey}
       />
       <NotionEditor
         noteId={activeNote?._id}
@@ -81,6 +116,13 @@ function Home() {
         onEmojiChange={handleEmojiChange}
         onFavoriteToggle={handleFavoriteToggle}
       />
+      {showTrash && (
+        <TrashView
+          onClose={handleHideTrash}
+          onRefreshSidebar={handleTrashRefresh}
+          onNoteRestored={handleNoteRestored}
+        />
+      )}
     </div>
   );
 }
@@ -102,6 +144,7 @@ function App() {
     <Routes>
       <Route path="/login" element={token ? <Navigate to="/" replace /> : <Login />} />
       <Route path="/register" element={token ? <Navigate to="/" replace /> : <Register />} />
+      <Route path="/public/:publicId" element={<PublicNote />} />
       <Route path="/profile" element={
         <ProtectedRoute>
           <Profile />

@@ -118,6 +118,82 @@ export const deleteNote = async (noteId) => {
   return data;
 };
 
+export const restoreNote = async (noteId) => {
+  const response = await fetch(`${API_URL}/document/${noteId}/restore`, {
+    method: "POST",
+    headers: getAuthHeaders(),
+  });
+  const data = await response.json();
+  if (!data.success) throw new Error(data.message);
+  return data.data;
+};
+
+export const permanentDeleteNote = async (noteId) => {
+  const response = await fetch(`${API_URL}/document/${noteId}/permanent`, {
+    method: "POST",
+    headers: getAuthHeaders(),
+  });
+  const data = await response.json();
+  if (!data.success) throw new Error(data.message);
+  return data;
+};
+
+export const restoreCollection = async (collectionId) => {
+  const response = await fetch(`${API_URL}/collections/${collectionId}/restore`, {
+    method: "POST",
+    headers: getAuthHeaders(),
+  });
+  const data = await response.json();
+  if (!data.success) throw new Error(data.message);
+  return data.data;
+};
+
+export const permanentDeleteCollection = async (collectionId) => {
+  const response = await fetch(`${API_URL}/collections/${collectionId}/permanent`, {
+    method: "POST",
+    headers: getAuthHeaders(),
+  });
+  const data = await response.json();
+  if (!data.success) throw new Error(data.message);
+  return data;
+};
+
+export const getTrashItems = async () => {
+  const response = await fetch(`${API_URL}/document/trash`, {
+    headers: getAuthHeaders(),
+  });
+  const data = await response.json();
+  if (!data.success) throw new Error(data.message);
+  return data.data;
+};
+
+export const publishNote = async (noteId) => {
+  const response = await fetch(`${API_URL}/document/${noteId}/publish`, {
+    method: "POST",
+    headers: getAuthHeaders(),
+  });
+  const data = await response.json();
+  if (!data.success) throw new Error(data.message);
+  return data.data;
+};
+
+export const unpublishNote = async (noteId) => {
+  const response = await fetch(`${API_URL}/document/${noteId}/unpublish`, {
+    method: "POST",
+    headers: getAuthHeaders(),
+  });
+  const data = await response.json();
+  if (!data.success) throw new Error(data.message);
+  return data;
+};
+
+export const getPublicNote = async (publicId) => {
+  const response = await fetch(`${API_URL}/document/public/${publicId}`);
+  const data = await response.json();
+  if (!data.success) throw new Error(data.message);
+  return data.data;
+};
+
 export const getFavorites = async () => {
   const response = await fetch(`${API_URL}/document/favorites/all`, {
     headers: getAuthHeaders(),
@@ -326,6 +402,17 @@ export const markNotificationRead = async (notificationId) => {
   const response = await fetch(`${API_URL}/notifications/${notificationId}/read`, {
     method: "POST",
     headers: getAuthHeaders(),
+  });
+  const data = await response.json();
+  if (!data.success) throw new Error(data.message);
+  return data.data;
+};
+
+export const updateCover = async (noteId, coverUrl, coverPosition = 0) => {
+  const response = await fetch(`${API_URL}/document/${noteId}`, {
+    method: "PUT",
+    headers: getAuthHeaders(),
+    body: JSON.stringify({ coverUrl, coverPosition }),
   });
   const data = await response.json();
   if (!data.success) throw new Error(data.message);

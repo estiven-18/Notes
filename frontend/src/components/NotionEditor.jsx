@@ -5,12 +5,13 @@ import { BlockNoteView } from "@blocknote/mantine";
 import "@blocknote/mantine/style.css";
 import * as Y from "yjs";
 import { WebsocketProvider } from "y-websocket";
-import { getNoteById, updateNoteById, toggleFavorite, shareNote, removeNoteShare, changeNoteShareRole, uploadFile } from "../services/api";
+  import { getNoteById, updateNoteById, toggleFavorite, shareNote, removeNoteShare, changeNoteShareRole, uploadFile, publishNote, unpublishNote } from "../services/api";
 import { es } from "@blocknote/core/locales";
 import SavingIndicator from "./SavingIndicator";
 import EmojiPicker from "./EmojiPicker";
 import ShareNoteModal from "./ShareNoteModal";
 import ModalPortal from "./ModalPortal";
+import CoverPicker from "./CoverPicker";
 const userColors = [
   "#ff6b6b", "#ffa94d", "#ffd43b", "#69db7c", "#38d9a9",
   "#4dabf7", "#748ffc", "#da77f2", "#f783ac", "#63e6be",
@@ -53,6 +54,11 @@ const EditorInner = ({ noteId, currentUser, onTitleChange, onEmojiChange, onFavo
   const [shareModalOpen, setShareModalOpen] = useState(false);
   const [noteSharedWith, setNoteSharedWith] = useState([]);
   const [userRole, setUserRole] = useState('viewer');
+  const [isPublic, setIsPublic] = useState(false);
+  const [publicUrl, setPublicUrl] = useState(null);
+  const [showPublicUrl, setShowPublicUrl] = useState(false);
+  const [coverUrl, setCoverUrl] = useState(null);
+  const [coverPosition, setCoverPosition] = useState(0);
   const titleTimeoutRef = useRef(null);
   const isSavingRef = useRef(false);
   const titleInputRef = useRef(null);
@@ -127,6 +133,10 @@ const EditorInner = ({ noteId, currentUser, onTitleChange, onEmojiChange, onFavo
           setTitle(note.title === "Sin título" ? "" : note.title);
           setEmoji(note.emoji || null);
           setIsFavorite(note.metadata?.isFavorite || false);
+          setIsPublic(note.isPublic || false);
+          setPublicUrl(note.publicId ? window.location.origin + `/public/${note.publicId}` : null);
+          setCoverUrl(note.coverUrl || null);
+          setCoverPosition(note.coverPosition || 0);
           setNoteSharedWith(note.sharedWith || []);
           setUserRole(role);
           setLastSaved(new Date(note.updatedAt).getTime());
@@ -163,6 +173,17 @@ const EditorInner = ({ noteId, currentUser, onTitleChange, onEmojiChange, onFavo
     return () => { clearInterval(interval); };
   }, [doSave]);
 
+  useEffect(() => {
+    if (!showPublicUrl) return;
+    const handler = (e) => {
+      if (!e.target.closest('.public-url-popover') && !e.target.closest('.editor-star-btn.published')) {
+        setShowPublicUrl(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [showPublicUrl]);
+
   const handleTitleChange = (e) => {
     const newTitle = e.target.value;
     setTitle(newTitle);
@@ -186,6 +207,12 @@ const EditorInner = ({ noteId, currentUser, onTitleChange, onEmojiChange, onFavo
         }
       }
     }, 500);
+  };
+
+  const handleCoverChange = (url, position) => {
+    setCoverUrl(url);
+    setCoverPosition(position || 0);
+    setLastSaved(Date.now());
   };
 
   const handleEmojiSelect = async (newEmoji) => {
@@ -233,6 +260,28 @@ const EditorInner = ({ noteId, currentUser, onTitleChange, onEmojiChange, onFavo
     setNoteSharedWith(updated.sharedWith || []);
   };
 
+  const handlePublish = async () => {
+    try {
+      const data = await publishNote(noteId);
+      setIsPublic(true);
+      const fullUrl = window.location.origin + data.publicUrl;
+      setPublicUrl(fullUrl);
+      setShowPublicUrl(true);
+    } catch (err) {
+      alert("Error al publicar: " + err.message);
+    }
+  };
+
+  const handleUnpublish = async () => {
+    try {
+      await unpublishNote(noteId);
+      setIsPublic(false);
+      setPublicUrl(null);
+    } catch (err) {
+      alert("Error al despublicar: " + err.message);
+    }
+  };
+
   if (error) {
     return (
       <div className="editor-empty">
@@ -266,12 +315,76 @@ const EditorInner = ({ noteId, currentUser, onTitleChange, onEmojiChange, onFavo
               </svg>
             </button>
           )}
+          {userRole === 'owner' && (
+            <>
+              <span className="editor-publish-btn-wrapper">
+                <button
+                  className={`editor-star-btn ${isPublic ? "published" : ""}`}
+                  onClick={isPublic ? handleUnpublish : handlePublish}
+                  title={isPublic ? "Despublicar nota" : "Publicar nota"}
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" fill={isPublic ? "currentColor" : "none"} viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" width="16" height="16">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 0 0 2.625.372 9.337 9.337 0 0 0 4.121-.952 4.125 4.125 0 0 0-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.006c0 1.113.285 2.16.786 3.07M15 19.128v-.003" />
+                  </svg>
+                </button>
+              </span>
+              {showPublicUrl && publicUrl && (
+                <div className="public-url-popover">
+                  <div className="public-url-popover-header">
+                    <span>Enlace público</span>
+                    <button className="public-url-close" onClick={() => setShowPublicUrl(false)}>&times;</button>
+                  </div>
+                  <div className="public-url-popover-body">
+                    <input
+                      className="public-url-input"
+                      type="text"
+                      value={publicUrl}
+                      readOnly
+                      onFocus={(e) => e.target.select()}
+                    />
+                    <button
+                      className="public-url-copy"
+                      onClick={(e) => {
+                        navigator.clipboard.writeText(publicUrl);
+                        e.target.textContent = '¡Copiado!';
+                        setTimeout(() => {
+                          e.target.textContent = 'Copiar';
+                        }, 2000);
+                      }}
+                    >
+                      Copiar
+                    </button>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
           <span className="editor-topbar-brand">{emoji ? `${emoji} ` : ''}{title || 'Sin título'}</span>
         </div>
         <SavingIndicator lastSaved={lastSaved} />
       </header>
 
-      <main className="editor-main">
+      {coverUrl && (
+        <div className="cover-section">
+          {(userRole === 'owner' || userRole === 'editor') ? (
+            <CoverPicker
+              noteId={noteId}
+              coverUrl={coverUrl}
+              coverPosition={coverPosition}
+              onCoverChange={handleCoverChange}
+            />
+          ) : (
+            <div
+              className="cover-image cover-image-full"
+              style={{
+                backgroundImage: `url(${coverUrl})`,
+                backgroundPosition: `50% ${coverPosition}%`,
+              }}
+            />
+          )}
+        </div>
+      )}
+      <main className={`editor-main${coverUrl ? ' has-cover' : ''}`}>
         {isLoading ? (
           <div className="editor-skeleton">
             <div className="skeleton-line w-3/4 h-6" />
@@ -281,7 +394,7 @@ const EditorInner = ({ noteId, currentUser, onTitleChange, onEmojiChange, onFavo
           </div>
         ) : (
           <>
-            <div className="editor-title-area">
+            <div className={`editor-title-area${coverUrl ? ' has-cover' : ''}${emoji ? ' has-emoji' : ''}`}>
               {userRole === 'viewer' ? (
                 <>
                   {emoji && <span className="editor-emoji-display">{emoji}</span>}
@@ -289,7 +402,18 @@ const EditorInner = ({ noteId, currentUser, onTitleChange, onEmojiChange, onFavo
                 </>
               ) : (
                 <>
-                  <EmojiPicker currentEmoji={emoji} onSelect={handleEmojiSelect} />
+                  <div className={`editor-title-tools${coverUrl ? ' has-cover' : ''}${emoji ? ' has-emoji' : ''}`}>
+                    <EmojiPicker currentEmoji={emoji} onSelect={handleEmojiSelect} />
+                    {!coverUrl && (
+                      <CoverPicker
+                        noteId={noteId}
+                        coverUrl={coverUrl}
+                        coverPosition={coverPosition}
+                        onCoverChange={handleCoverChange}
+                        compact
+                      />
+                    )}
+                  </div>
                   <input
                     ref={titleInputRef}
                     className="editor-title-input"

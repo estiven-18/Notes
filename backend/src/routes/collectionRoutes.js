@@ -4,6 +4,8 @@ import {
   createCollection,
   updateCollection,
   deleteCollection,
+  restoreCollection,
+  permanentDeleteCollection,
   getNotesByCollection,
   createNote,
   toggleCollectionFavorite,
@@ -27,6 +29,8 @@ router.get('/', getCollections);
 router.post('/', createCollection);
 router.put('/:id', updateCollection);
 router.delete('/:id', deleteCollection);
+router.post('/:id/restore', restoreCollection);
+router.post('/:id/permanent', permanentDeleteCollection);
 router.get('/:id/notes', getNotesByCollection);
 router.post('/:id/notes', createNote);
 router.post('/:id/favorite', toggleCollectionFavorite);

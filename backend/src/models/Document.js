@@ -39,11 +39,45 @@ const documentSchema = new mongoose.Schema({
     default: null
   },
 
+  coverUrl: {
+    type: String,
+    default: null
+  },
+  coverPosition: {
+    type: Number,
+    default: 0
+  },
+
   sharedWith: [{
     user: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     role: { type: String, enum: ['viewer', 'editor'], default: 'editor' }
   }],
 
+  isDeleted: {
+    type: Boolean,
+    default: false,
+    index: true
+  },
+  deletedAt: {
+    type: Date,
+    default: null
+  },
+  deletedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    default: null
+  },
+  isPublic: {
+    type: Boolean,
+    default: false,
+    index: true
+  },
+  publicId: {
+    type: String,
+    unique: true,
+    sparse: true,
+    index: true
+  },
   metadata: {
     workspaceId: {
       type: mongoose.Schema.Types.ObjectId,

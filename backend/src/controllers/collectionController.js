@@ -5,7 +5,7 @@ import Notification from "../models/Notification.js";
 
 export const getCollections = async (req, res) => {
   try {
-    const collections = await Collection.find({ user: req.user._id })
+    const collections = await Collection.find({ user: req.user._id, isDeleted: false })
       .populate('sharedWith.user', 'name email')
       .sort({ updatedAt: -1 });
     res.json({ success: true, data: collections });
@@ -57,12 +57,58 @@ export const updateCollection = async (req, res) => {
 export const deleteCollection = async (req, res) => {
   try {
     const { id } = req.params;
-    const collection = await Collection.findOneAndDelete({ _id: id, user: req.user._id });
+    const collection = await Collection.findOne({ _id: id, user: req.user._id });
     if (!collection) {
       return res.status(404).json({ success: false, message: "Colección no encontrada" });
     }
-    await Document.deleteMany({ collectionId: id, user: req.user._id });
-    res.json({ success: true, message: "Colección eliminada" });
+    collection.isDeleted = true;
+    collection.deletedAt = new Date();
+    collection.deletedBy = req.user._id;
+    collection.isFavorite = false;
+    collection.sharedWith = [];
+    await collection.save();
+    await Document.updateMany(
+      { collectionId: id, isDeleted: false },
+      { $set: { isDeleted: true, deletedAt: new Date(), deletedBy: req.user._id, isFavorite: false, sharedWith: [] } }
+    );
+    res.json({ success: true, message: "Colección movida a la papelera" });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const restoreCollection = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const collection = await Collection.findOne({ _id: id, isDeleted: true });
+    if (!collection) {
+      return res.status(404).json({ success: false, message: "Colección no encontrada en la papelera" });
+    }
+    collection.isDeleted = false;
+    collection.deletedAt = null;
+    collection.deletedBy = null;
+    collection.isFavorite = false;
+    collection.sharedWith = [];
+    await collection.save();
+    await Document.updateMany(
+      { collectionId: id, isDeleted: true },
+      { $set: { isDeleted: false, deletedAt: null, deletedBy: null, isFavorite: false, sharedWith: [] } }
+    );
+    res.json({ success: true, data: collection });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const permanentDeleteCollection = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const collection = await Collection.findOneAndDelete({ _id: id, isDeleted: true });
+    if (!collection) {
+      return res.status(404).json({ success: false, message: "Colección no encontrada en la papelera" });
+    }
+    await Document.deleteMany({ collectionId: id });
+    res.json({ success: true, message: "Colección eliminada permanentemente" });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -80,7 +126,7 @@ export const getNotesByCollection = async (req, res) => {
     if (!isOwner && !isShared) {
       return res.status(403).json({ success: false, message: "No tienes acceso a esta colección" });
     }
-    const notes = await Document.find({ collectionId: id })
+    const notes = await Document.find({ collectionId: id, isDeleted: false })
       .select("title emoji createdAt updatedAt metadata.isFavorite")
       .sort({ updatedAt: -1 });
     res.json({ success: true, data: notes });
@@ -110,10 +156,10 @@ export const toggleCollectionFavorite = async (req, res) => {
 
 export const getFavoriteCollections = async (req, res) => {
   try {
-    const collections = await Collection.find({ user: req.user._id, isFavorite: true }).sort({ updatedAt: -1 });
+    const collections = await Collection.find({ user: req.user._id, isFavorite: true, isDeleted: false }).sort({ updatedAt: -1 });
     const result = await Promise.all(
       collections.map(async (col) => {
-        const notes = await Document.find({ collectionId: col._id, user: req.user._id })
+        const notes = await Document.find({ collectionId: col._id, user: req.user._id, isDeleted: false })
           .select("title emoji createdAt updatedAt metadata.isFavorite")
           .sort({ updatedAt: -1 });
         return { ...col.toObject(), notes };
@@ -217,13 +263,13 @@ export const changeShareRole = async (req, res) => {
 
 export const getSharedCollections = async (req, res) => {
   try {
-    const collections = await Collection.find({ 'sharedWith.user': req.user._id })
+    const collections = await Collection.find({ 'sharedWith.user': req.user._id, isDeleted: false })
       .populate('user', 'name email')
       .populate('sharedWith.user', 'name email')
       .sort({ updatedAt: -1 });
     const result = await Promise.all(
       collections.map(async (col) => {
-        const notes = await Document.find({ collectionId: col._id })
+        const notes = await Document.find({ collectionId: col._id, isDeleted: false })
           .select("title emoji createdAt updatedAt metadata.isFavorite")
           .sort({ updatedAt: -1 });
         return { ...col.toObject(), notes, isShared: true };

@@ -30,3 +30,6 @@ Thumbs.db
 !.yarn/releases
 !.yarn/sdks
 !.yarn/versions
+
+# Imagenes y archivos multimedia
+uploads/
