@@ -23,6 +23,7 @@ function Home() {
   const [showTrash, setShowTrash] = useState(false);
   const [favoriteRefreshKey, setFavoriteRefreshKey] = useState(0);
   const [trashRefreshKey, setTrashRefreshKey] = useState(0);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
 
   useEffect(() => {
     if (activeNote) {
@@ -97,11 +98,14 @@ function Home() {
 
   const handleNoteRestored = useCallback((note) => {
     setShowTrash(false);
-    setActiveNote(note);
+  }, []);
+
+  const toggleSidebar = useCallback(() => {
+    setSidebarOpen((prev) => !prev);
   }, []);
 
   return (
-    <div className="app-layout">
+    <div className={`app-layout${sidebarOpen ? '' : ' sidebar-collapsed'}`}>
       <Sidebar
         activeNote={activeNote}
         onSelectNote={handleSelectNote}
@@ -109,12 +113,16 @@ function Home() {
         onShowTrash={handleShowTrash}
         showTrash={showTrash}
         trashRefreshKey={trashRefreshKey}
+        isOpen={sidebarOpen}
+        onToggleSidebar={toggleSidebar}
       />
       <NotionEditor
         noteId={activeNote?._id}
         onTitleChange={handleTitleChange}
         onEmojiChange={handleEmojiChange}
         onFavoriteToggle={handleFavoriteToggle}
+        sidebarOpen={sidebarOpen}
+        onToggleSidebar={toggleSidebar}
       />
       {showTrash && (
         <TrashView

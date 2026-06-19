@@ -17,7 +17,7 @@ const userColors = [
   "#4dabf7", "#748ffc", "#da77f2", "#f783ac", "#63e6be",
 ];
 
-const NotionEditor = ({ noteId, onTitleChange, onEmojiChange, onFavoriteToggle }) => {
+const NotionEditor = ({ noteId, onTitleChange, onEmojiChange, onFavoriteToggle, sidebarOpen, onToggleSidebar }) => {
   const currentUser = useSelector((state) => state.auth.user);
 
   if (!noteId) {
@@ -39,12 +39,14 @@ const NotionEditor = ({ noteId, onTitleChange, onEmojiChange, onFavoriteToggle }
         onTitleChange={onTitleChange}
         onEmojiChange={onEmojiChange}
         onFavoriteToggle={onFavoriteToggle}
+        sidebarOpen={sidebarOpen}
+        onToggleSidebar={onToggleSidebar}
       />
     </div>
   );
 };
 
-const EditorInner = ({ noteId, currentUser, onTitleChange, onEmojiChange, onFavoriteToggle }) => {
+const EditorInner = ({ noteId, currentUser, onTitleChange, onEmojiChange, onFavoriteToggle, sidebarOpen, onToggleSidebar }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [lastSaved, setLastSaved] = useState(null);
@@ -295,6 +297,17 @@ const EditorInner = ({ noteId, currentUser, onTitleChange, onEmojiChange, onFavo
     <>
       <header className="editor-topbar">
         <div className="editor-topbar-left">
+          {!sidebarOpen && (
+            <button
+              className="editor-star-btn sidebar-expand-btn-inline"
+              onClick={onToggleSidebar}
+              title="Mostrar sidebar"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" width="16" height="16">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
+              </svg>
+            </button>
+          )}
           <button
             className={`editor-star-btn ${isFavorite ? "favorited" : ""}`}
             onClick={handleFavoriteClick}

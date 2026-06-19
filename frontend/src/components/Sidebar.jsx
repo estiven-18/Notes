@@ -26,7 +26,7 @@ import ShareCollectionModal from "./ShareCollectionModal";
 import NotificationBell from "./NotificationBell";
 import ModalPortal from "./ModalPortal";
 
-const Sidebar = ({ activeNote, onSelectNote, onAddCollection, favoriteRefreshKey, onShowTrash, showTrash, trashRefreshKey }) => {
+const Sidebar = ({ activeNote, onSelectNote, onAddCollection, favoriteRefreshKey, onShowTrash, showTrash, trashRefreshKey, isOpen, onToggleSidebar }) => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const activeNoteId = activeNote?._id;
@@ -555,6 +555,15 @@ const Sidebar = ({ activeNote, onSelectNote, onAddCollection, favoriteRefreshKey
           title="Cerrar sesión"
         >
           Salir
+        </button>
+        <button
+          className="sidebar-collapse-btn"
+          onClick={onToggleSidebar}
+          title="Ocultar sidebar"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" width="18" height="18">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
+          </svg>
         </button>
       </div>
 
