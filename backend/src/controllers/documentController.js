@@ -127,7 +127,7 @@ export const permanentDeleteDocument = async (req, res) => {
 export const getNoteById = async (req, res) => {
   try {
     const { id } = req.params;
-    const note = await Document.findById(id).populate('deletedBy', 'name');
+    const note = await Document.findById(id).populate('deletedBy', 'name').populate('sharedWith.user', 'name email');
     if (!note) {
       return res.status(404).json({ success: false, message: 'Nota no encontrada' });
     }
@@ -138,8 +138,14 @@ export const getNoteById = async (req, res) => {
     if (!result) {
       return res.status(404).json({ success: false, message: 'Nota no encontrada' });
     }
-    const noteData = result.note.toObject();
+    const noteData = note.toObject();
     noteData.userRole = result.role;
+    if (note.collectionId) {
+      const collection = await Collection.findById(note.collectionId).populate('sharedWith.user', 'name email');
+      if (collection && collection.sharedWith && collection.sharedWith.length > 0) {
+        noteData.collectionSharedWith = collection.sharedWith;
+      }
+    }
     res.json({ success: true, data: noteData });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });

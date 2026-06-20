@@ -62,6 +62,7 @@ const EditorInner = ({ noteId, currentUser, onTitleChange, onEmojiChange, onFavo
   const [showPublicUrl, setShowPublicUrl] = useState(false);
   const [coverUrl, setCoverUrl] = useState(null);
   const [coverPosition, setCoverPosition] = useState(0);
+  const [showSharedList, setShowSharedList] = useState(false);
   const titleTimeoutRef = useRef(null);
   const isSavingRef = useRef(false);
   const titleInputRef = useRef(null);
@@ -140,7 +141,8 @@ const EditorInner = ({ noteId, currentUser, onTitleChange, onEmojiChange, onFavo
           setPublicUrl(note.publicId ? window.location.origin + `/public/${note.publicId}` : null);
           setCoverUrl(note.coverUrl || null);
           setCoverPosition(note.coverPosition || 0);
-          setNoteSharedWith(note.sharedWith || []);
+          const shared = (note.sharedWith && note.sharedWith.length > 0) ? note.sharedWith : (note.collectionSharedWith || []);
+          setNoteSharedWith(shared);
           setUserRole(role);
           setLastSaved(new Date(note.updatedAt).getTime());
         });
@@ -377,7 +379,35 @@ const EditorInner = ({ noteId, currentUser, onTitleChange, onEmojiChange, onFavo
           )}
           <span className="editor-topbar-brand">{emoji ? `${emoji} ` : ''}{title || 'Sin título'}</span>
         </div>
-        <SavingIndicator lastSaved={lastSaved} />
+        <div className="editor-topbar-right">
+          <SavingIndicator lastSaved={lastSaved} />
+          {noteSharedWith.length > 0 && (
+            <span
+              className="shared-count-badge"
+              onMouseEnter={() => setShowSharedList(true)}
+              onMouseLeave={() => setShowSharedList(false)}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" width="14" height="14">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M18 18.72a9.094 9.094 0 0 0 3.741-.479 3 3 0 0 0-4.682-2.72m.94 3.198.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0 1 12 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 0 1 6 18.719m12 0a5.971 5.971 0 0 0-.941-3.197m0 0A5.995 5.995 0 0 0 12 12.75a5.995 5.995 0 0 0-5.058 2.772m0 0a3 3 0 0 0-4.681 2.72 8.986 8.986 0 0 0 3.74.477m.94-3.197a5.971 5.971 0 0 0-.94 3.197M15 6.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm6 3a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Zm-13.5 0a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Z" />
+              </svg>
+              {noteSharedWith.length}
+              {showSharedList && (
+                <div className="shared-list-dropdown">
+                  <div className="shared-list-header">Compartido con:</div>
+                  {noteSharedWith.map((s) => (
+                    <div key={s.user?._id || s.user} className="shared-list-item">
+                      <span className="shared-list-avatar" style={{ backgroundColor: `hsl(${(s.user?.name || '').charCodeAt(0) * 7 % 360}, 50%, 50%)` }}>
+                        {(s.user?.name || '?').charAt(0).toUpperCase()}
+                      </span>
+                      <span className="shared-list-name">{s.user?.name || s.user?.email || 'Usuario'}</span>
+                      <span className="shared-list-role">{s.role === 'editor' ? 'Edición' : 'Solo lectura'}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </span>
+          )}
+        </div>
       </header>
 
       {coverUrl && (
