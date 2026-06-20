@@ -17,7 +17,7 @@ const userColors = [
   "#4dabf7", "#748ffc", "#da77f2", "#f783ac", "#63e6be",
 ];
 
-const NotionEditor = ({ noteId, onTitleChange, onEmojiChange, onFavoriteToggle, sidebarOpen, onToggleSidebar }) => {
+const NotionEditor = ({ noteId, onTitleChange, onEmojiChange, onFavoriteToggle, onShareChange, sidebarOpen, onToggleSidebar }) => {
   const currentUser = useSelector((state) => state.auth.user);
 
   if (!noteId) {
@@ -39,6 +39,7 @@ const NotionEditor = ({ noteId, onTitleChange, onEmojiChange, onFavoriteToggle, 
         onTitleChange={onTitleChange}
         onEmojiChange={onEmojiChange}
         onFavoriteToggle={onFavoriteToggle}
+        onShareChange={onShareChange}
         sidebarOpen={sidebarOpen}
         onToggleSidebar={onToggleSidebar}
       />
@@ -46,7 +47,7 @@ const NotionEditor = ({ noteId, onTitleChange, onEmojiChange, onFavoriteToggle, 
   );
 };
 
-const EditorInner = ({ noteId, currentUser, onTitleChange, onEmojiChange, onFavoriteToggle, sidebarOpen, onToggleSidebar }) => {
+const EditorInner = ({ noteId, currentUser, onTitleChange, onEmojiChange, onFavoriteToggle, onShareChange, sidebarOpen, onToggleSidebar }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [lastSaved, setLastSaved] = useState(null);
@@ -250,11 +251,13 @@ const EditorInner = ({ noteId, currentUser, onTitleChange, onEmojiChange, onFavo
   const handleShareNote = async (nid, email, role = 'editor') => {
     const updated = await shareNote(nid, email, role);
     setNoteSharedWith(updated.sharedWith || []);
+    onShareChange?.();
   };
 
   const handleRemoveNoteShare = async (nid, userId) => {
     const updated = await removeNoteShare(nid, userId);
     setNoteSharedWith(updated.sharedWith || []);
+    onShareChange?.();
   };
 
   const handleChangeNoteShareRole = async (nid, userId, role) => {
@@ -317,7 +320,7 @@ const EditorInner = ({ noteId, currentUser, onTitleChange, onEmojiChange, onFavo
               <path strokeLinecap="round" strokeLinejoin="round" d="M11.48 3.499a.562.562 0 0 1 1.04 0l2.125 5.111a.563.563 0 0 0 .475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 0 0-.182.557l1.285 5.385a.562.562 0 0 1-.84.61l-4.725-2.885a.562.562 0 0 0-.586 0L6.982 20.54a.562.562 0 0 1-.84-.61l1.285-5.386a.562.562 0 0 0-.182-.557l-4.204-3.602a.562.562 0 0 1 .321-.988l5.518-.442a.563.563 0 0 0 .475-.345L11.48 3.5Z" />
             </svg>
           </button>
-          {userRole !== 'viewer' && (
+          {userRole === 'owner' && (
             <button
               className="editor-star-btn"
               onClick={() => setShareModalOpen(true)}

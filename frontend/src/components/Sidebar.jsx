@@ -26,7 +26,7 @@ import ShareCollectionModal from "./ShareCollectionModal";
 import NotificationBell from "./NotificationBell";
 import ModalPortal from "./ModalPortal";
 
-const Sidebar = ({ activeNote, onSelectNote, onAddCollection, favoriteRefreshKey, onShowTrash, showTrash, trashRefreshKey, isOpen, onToggleSidebar }) => {
+const Sidebar = ({ activeNote, onSelectNote, onAddCollection, favoriteRefreshKey, sharedRefreshKey, onShowTrash, showTrash, trashRefreshKey, onToggleSidebar }) => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const activeNoteId = activeNote?._id;
@@ -78,10 +78,6 @@ const Sidebar = ({ activeNote, onSelectNote, onAddCollection, favoriteRefreshKey
     return {};
   });
   const [sharedNotes, setSharedNotes] = useState([]);
-  const [sharedNotesOpen, setSharedNotesOpen] = useState(() => {
-    try { const s = JSON.parse(localStorage.getItem('sidebarSections')); if (s?.sharedNotesOpen !== undefined) return s.sharedNotesOpen; } catch {/* ignore */}
-    return false;
-  });
 
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState({ collections: [], notes: [] });
@@ -171,7 +167,7 @@ const Sidebar = ({ activeNote, onSelectNote, onAddCollection, favoriteRefreshKey
       }
     });
     return () => { cancelled = true; };
-  }, [favoriteRefreshKey]);
+  }, [favoriteRefreshKey, sharedRefreshKey]);
 
   useEffect(() => {
     let cancelled = false;
@@ -197,7 +193,7 @@ const Sidebar = ({ activeNote, onSelectNote, onAddCollection, favoriteRefreshKey
       }
     })();
     return () => { cancelled = true; };
-  }, []);
+  }, [sharedRefreshKey]);
 
   useEffect(() => {
     localStorage.setItem('sidebarExpanded', JSON.stringify(expanded));
@@ -211,9 +207,8 @@ const Sidebar = ({ activeNote, onSelectNote, onAddCollection, favoriteRefreshKey
       privadasOpen,
       favoritesOpen,
       sharedOpen,
-      sharedNotesOpen,
     }));
-  }, [collectionsOpen, publicasOpen, privadasOpen, favoritesOpen, sharedOpen, sharedNotesOpen]);
+  }, [collectionsOpen, publicasOpen, privadasOpen, favoritesOpen, sharedOpen]);
 
   useEffect(() => {
     if (!searchQuery.trim()) {
@@ -665,11 +660,41 @@ const Sidebar = ({ activeNote, onSelectNote, onAddCollection, favoriteRefreshKey
         <nav className="sidebar-nav">
           {loading ? (
           <div className="sidebar-loading">Cargando...</div>
-        ) : collections.length === 0 ? (
+        ) : collections.length === 0 && sharedNotes.length === 0 ? (
           <div className="sidebar-empty">Crea tu primera colección</div>
         ) : (
           <>
             {collections.map(col => renderCollection(col, true))}
+            {sharedNotes.map((note) => {
+              const isActive = activeNoteId === note._id;
+              const displayTitle = note.title || 'Sin título';
+              return (
+                <div
+                  key={note._id}
+                  className={`sidebar-note ${isActive ? "active" : ""}`}
+                  onClick={() => {
+                    onSelectNote({
+                      _id: note._id,
+                      title: note.title || 'Sinítulo',
+                      emoji: note.emoji != null ? note.emoji : null,
+                      collectionId: note.collectionId,
+                    });
+                  }}
+                >
+                  {note.emoji ? (
+                    <span className="sidebar-note-icon">{note.emoji}</span>
+                  ) : (
+                    <span className="sidebar-note-icon">
+                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" width="14" height="14">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
+                      </svg>
+                    </span>
+                  )}
+                  <span className="sidebar-note-title">{displayTitle}</span>
+                  <span className="shared-badge">compartido</span>
+                </div>
+              );
+            })}
           </>
         )}
         </nav>
@@ -947,55 +972,6 @@ const Sidebar = ({ activeNote, onSelectNote, onAddCollection, favoriteRefreshKey
                   )}
                 </div>
               ))}
-            </nav>
-          )}
-        </>
-      )}
-
-      {sharedNotes.length > 0 && (
-        <>
-          <div className="sidebar-nav-header" onClick={() => setSharedNotesOpen((o) => !o)}>
-            <span className={`sidebar-nav-chevron ${sharedNotesOpen ? "open" : ""}`}>
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" width="12" height="12">
-                <path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
-              </svg>
-            </span>
-            <span className="sidebar-nav-title">Notas compartidas</span>
-          </div>
-          {sharedNotesOpen && (
-            <nav className="sidebar-nav">
-              {sharedNotes.map((note) => {
-                const isActive = activeNoteId === note._id;
-                const displayTitle = note.title || 'Sin título';
-                return (
-                  <div
-                    key={note._id}
-                    className={`sidebar-note ${isActive ? "active" : ""}`}
-                    onClick={() => {
-                      onSelectNote({
-                        _id: note._id,
-                        title: note.title || 'Sin título',
-                        emoji: note.emoji != null ? note.emoji : null,
-                        collectionId: note.collectionId,
-                      });
-                    }}
-                  >
-                    {note.emoji ? (
-                      <span className="sidebar-note-icon">{note.emoji}</span>
-                    ) : (
-                      <span className="sidebar-note-icon">
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" width="14" height="14">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
-                        </svg>
-                      </span>
-                    )}
-                    <span className="sidebar-note-title">{displayTitle}</span>
-                    {note.collectionName && (
-                      <span className="shared-badge">{note.collectionName}</span>
-                    )}
-                  </div>
-                );
-              })}
             </nav>
           )}
         </>

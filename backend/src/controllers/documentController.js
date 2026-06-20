@@ -296,7 +296,10 @@ export const getFavorites = async (req, res) => {
     const favCollections = await Collection.find({ user: req.user._id, isFavorite: true, isDeleted: false }).select('_id');
     const favColIds = favCollections.map((c) => c._id);
     const notes = await Document.find({
-      user: req.user._id,
+      $or: [
+        { user: req.user._id },
+        { 'sharedWith.user': req.user._id },
+      ],
       'metadata.isFavorite': true,
       collectionId: { $nin: favColIds },
       isDeleted: false,

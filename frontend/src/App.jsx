@@ -24,6 +24,7 @@ function Home() {
   const [favoriteRefreshKey, setFavoriteRefreshKey] = useState(0);
   const [trashRefreshKey, setTrashRefreshKey] = useState(0);
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sharedRefreshKey, setSharedRefreshKey] = useState(0);
 
   useEffect(() => {
     if (activeNote) {
@@ -96,12 +97,16 @@ function Home() {
     setTrashRefreshKey((k) => k + 1);
   }, []);
 
-  const handleNoteRestored = useCallback((note) => {
+  const handleNoteRestored = useCallback(() => {
     setShowTrash(false);
   }, []);
 
   const toggleSidebar = useCallback(() => {
     setSidebarOpen((prev) => !prev);
+  }, []);
+
+  const handleShareChange = useCallback(() => {
+    setSharedRefreshKey((k) => k + 1);
   }, []);
 
   return (
@@ -110,6 +115,7 @@ function Home() {
         activeNote={activeNote}
         onSelectNote={handleSelectNote}
         favoriteRefreshKey={favoriteRefreshKey}
+        sharedRefreshKey={sharedRefreshKey}
         onShowTrash={handleShowTrash}
         showTrash={showTrash}
         trashRefreshKey={trashRefreshKey}
@@ -121,6 +127,7 @@ function Home() {
         onTitleChange={handleTitleChange}
         onEmojiChange={handleEmojiChange}
         onFavoriteToggle={handleFavoriteToggle}
+        onShareChange={handleShareChange}
         sidebarOpen={sidebarOpen}
         onToggleSidebar={toggleSidebar}
       />
