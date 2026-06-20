@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, startTransition } from "react";
 import { useDispatch } from "react-redux";
+import ThemeToggle from "./ThemeToggle";
 import {
   getCollections,
   getNotesByCollection,
@@ -989,6 +990,7 @@ const Sidebar = ({ activeNote, onSelectNote, onAddCollection, favoriteRefreshKey
           <span>Papelera</span>
           {trashCount > 0 && <span className="trash-count">{trashCount}</span>}
         </button>
+        <ThemeToggle />
         <button
           className="sidebar-logout-btn"
           onClick={() => dispatch(logout())}
