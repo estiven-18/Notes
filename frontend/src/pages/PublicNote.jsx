@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { getPublicNote } from "../services/api";
-import { useParams } from "react-router-dom";
+import { useParams, Link } from "react-router-dom";
 
 const PublicNote = () => {
   const { publicId } = useParams();
@@ -51,6 +51,13 @@ const PublicNote = () => {
 
   return (
     <div className="public-note-page">
+      <nav className="public-navbar">
+        <span className="public-navbar-title">
+          {note.emoji && <span className="public-navbar-emoji">{note.emoji}</span>}
+          {note.title || "Sin título"}
+        </span>
+        <Link to="/login" className="public-navbar-login">Ir a Notes</Link>
+      </nav>
       {note.coverUrl && (
         <div
           className="public-note-cover"

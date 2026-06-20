@@ -2132,6 +2132,52 @@ body {
   background: var(--color-canvas-soft, #f8f8f8);
 }
 
+.public-navbar {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 48px;
+  padding: 0 24px;
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--color-hairline, #e0e0e0);
+}
+
+.public-navbar-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-ink-primary, #1a1a1a);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.public-navbar-emoji {
+  font-size: 18px;
+}
+
+.public-navbar-login {
+  flex-shrink: 0;
+  padding: 6px 16px;
+  border-radius: 8px;
+  background: var(--color-accent, #2563eb);
+  color: white;
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
+  transition: background 0.15s;
+}
+
+.public-navbar-login:hover {
+  background: var(--color-accent-hover, #1d4ed8);
+}
+
 .public-note-cover {
   width: 100%;
   height: 240px;
