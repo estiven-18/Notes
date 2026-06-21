@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useLocation, useNavigate, useMatch } from 'react-router-dom';
 import Sidebar from './components/Sidebar';
 import NotionEditor from './components/NotionEditor';
 import TrashView from './components/TrashView';
@@ -8,12 +8,23 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import Profile from './pages/Profile';
 import PublicNote from './pages/PublicNote';
+import Library from './pages/Library';
+import CollectionView from './pages/CollectionView';
 import ProtectedRoute from './components/ProtectedRoute';
 import { verifyToken } from './store/authSlice';
 import { getNoteById } from './services/api';
 
-function Home() {
+function AppLayout() {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const noteMatch = useMatch('/note/:noteId');
+  const collectionMatch = useMatch('/collection/:collectionId');
+  const isLibrary = location.pathname === '/library';
+  const isCollectionView = !!collectionMatch;
+  const noteIdFromUrl = noteMatch?.params?.noteId;
+
   const [activeNote, setActiveNote] = useState(() => {
+    if (noteIdFromUrl) return { _id: noteIdFromUrl };
     try {
       return JSON.parse(localStorage.getItem('activeNote'));
     } catch {
@@ -25,8 +36,14 @@ function Home() {
   const [trashRefreshKey, setTrashRefreshKey] = useState(0);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [sharedRefreshKey, setSharedRefreshKey] = useState(0);
+  const [collectionRefreshKey, setCollectionRefreshKey] = useState(0);
+  const [noteRefreshKey, setNoteRefreshKey] = useState(0);
 
   useEffect(() => {
+    if (isLibrary) {
+      document.title = 'Library | Notes';
+      return;
+    }
     if (activeNote) {
       localStorage.setItem('activeNote', JSON.stringify(activeNote));
       const emoji = activeNote.emoji && activeNote.emoji !== null ? activeNote.emoji + ' ' : '';
@@ -36,10 +53,10 @@ function Home() {
       localStorage.removeItem('activeNote');
       document.title = 'Notes';
     }
-  }, [activeNote]);
+  }, [activeNote, isLibrary]);
 
   useEffect(() => {
-    if (activeNote?._id && !activeNote.isDeleted) {
+    if (!isLibrary && activeNote?._id && !activeNote.isDeleted) {
       getNoteById(activeNote._id).then((note) => {
         if (note.isDeleted) {
           setShowTrash(true);
@@ -60,7 +77,7 @@ function Home() {
         localStorage.removeItem('activeNote');
       });
     }
-  }, []);
+  }, [activeNote, isLibrary]);
 
   const handleSelectNote = useCallback((note) => {
     if (note?.isDeleted) {
@@ -68,8 +85,11 @@ function Home() {
     } else {
       setShowTrash(false);
       setActiveNote(note);
+      if (isLibrary || isCollectionView) {
+        navigate(`/note/${note._id}`);
+      }
     }
-  }, []);
+  }, [isLibrary, isCollectionView, navigate]);
 
   const handleTitleChange = useCallback((noteId, newTitle) => {
     setActiveNote((prev) => prev && prev._id === noteId ? { ...prev, title: newTitle } : prev);
@@ -109,6 +129,10 @@ function Home() {
     setSharedRefreshKey((k) => k + 1);
   }, []);
 
+  const handleCollectionUpdate = useCallback(() => {
+    setCollectionRefreshKey((k) => k + 1);
+  }, []);
+
   return (
     <div className={`app-layout${sidebarOpen ? '' : ' sidebar-collapsed'}`}>
       <Sidebar
@@ -116,27 +140,53 @@ function Home() {
         onSelectNote={handleSelectNote}
         favoriteRefreshKey={favoriteRefreshKey}
         sharedRefreshKey={sharedRefreshKey}
+        collectionRefreshKey={collectionRefreshKey}
         onShowTrash={handleShowTrash}
         showTrash={showTrash}
         trashRefreshKey={trashRefreshKey}
         isOpen={sidebarOpen}
         onToggleSidebar={toggleSidebar}
+        onNoteChange={() => setNoteRefreshKey(k => k + 1)}
       />
-      <NotionEditor
-        noteId={activeNote?._id}
-        onTitleChange={handleTitleChange}
-        onEmojiChange={handleEmojiChange}
-        onFavoriteToggle={handleFavoriteToggle}
-        onShareChange={handleShareChange}
-        sidebarOpen={sidebarOpen}
-        onToggleSidebar={toggleSidebar}
-      />
-      {showTrash && (
-        <TrashView
-          onClose={handleHideTrash}
-          onRefreshSidebar={handleTrashRefresh}
-          onNoteRestored={handleNoteRestored}
-        />
+      {!sidebarOpen && (
+        <button
+          className="sidebar-expand-btn"
+          onClick={toggleSidebar}
+          title="Mostrar sidebar"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" width="20" height="20">
+            <path strokeLinecap="round" strokeLinejoin="round" d="8.25 4.5l7.5 7.5-7.5 7.5" />
+          </svg>
+        </button>
+      )}
+      {showTrash ? (
+        <main className="editor-area" style={{ flex: 1, minWidth: 0 }}>
+          <TrashView
+            onClose={handleHideTrash}
+            onRefreshSidebar={handleTrashRefresh}
+            onNoteRestored={handleNoteRestored}
+          />
+        </main>
+      ) : isLibrary ? (
+        <main className="editor-area" style={{ flex: 1, minWidth: 0 }}>
+          <Library noteRefreshKey={noteRefreshKey} />
+        </main>
+      ) : isCollectionView ? (
+        <main className="editor-area" style={{ flex: 1, minWidth: 0 }}>
+          <CollectionView onCollectionUpdate={handleCollectionUpdate} />
+        </main>
+      ) : (
+        <>
+          <NotionEditor
+            noteId={activeNote?._id}
+            onTitleChange={handleTitleChange}
+            onEmojiChange={handleEmojiChange}
+            onFavoriteToggle={handleFavoriteToggle}
+            onShareChange={handleShareChange}
+            sidebarOpen={sidebarOpen}
+            onToggleSidebar={toggleSidebar}
+          />
+        </>
       )}
     </div>
   );
@@ -165,11 +215,12 @@ function App() {
           <Profile />
         </ProtectedRoute>
       } />
-      <Route path="/" element={
-        <ProtectedRoute>
-          <Home />
-        </ProtectedRoute>
-      } />
+      <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
+        <Route path="/" element={null} />
+        <Route path="/library" element={null} />
+        <Route path="/collection/:collectionId" element={null} />
+        <Route path="/note/:noteId" element={null} />
+      </Route>
     </Routes>
   );
 }

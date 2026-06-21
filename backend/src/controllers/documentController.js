@@ -297,6 +297,56 @@ export const getSharedNotes = async (req, res) => {
   }
 };
 
+export const getAllNotes = async (req, res) => {
+  try {
+    const userId = req.user._id;
+
+    const ownedNotes = await Document.find({ user: userId, isDeleted: { $ne: true } })
+      .select('title emoji collectionId createdAt updatedAt sharedWith isPublic user metadata')
+      .populate('collectionId', 'name emoji sharedWith')
+      .populate('user', 'name email')
+      .sort({ updatedAt: -1 });
+
+    const sharedColIds = await Collection.find({ 'sharedWith.user': userId }).distinct('_id');
+
+    const sharedNotes = await Document.find({
+      'sharedWith.user': userId,
+      collectionId: { $nin: sharedColIds },
+      isDeleted: { $ne: true },
+    })
+      .select('title emoji collectionId createdAt updatedAt sharedWith isPublic user')
+      .populate('collectionId', 'name emoji sharedWith')
+      .populate('user', 'name email')
+      .sort({ updatedAt: -1 });
+
+    const notesFromSharedCollections = await Document.find({
+      collectionId: { $in: sharedColIds },
+      isDeleted: { $ne: true },
+    })
+      .select('title emoji collectionId createdAt updatedAt sharedWith isPublic user')
+      .populate('collectionId', 'name emoji sharedWith')
+      .populate('user', 'name email')
+      .sort({ updatedAt: -1 });
+
+    const allNotes = [
+      ...ownedNotes.map(n => ({ ...n.toObject(), source: 'owned' })),
+      ...sharedNotes.map(n => ({ ...n.toObject(), source: 'shared' })),
+      ...notesFromSharedCollections.map(n => ({ ...n.toObject(), source: 'shared-collection' })),
+    ];
+
+    const seen = new Set();
+    const uniqueNotes = allNotes.filter(n => {
+      if (seen.has(n._id.toString())) return false;
+      seen.add(n._id.toString());
+      return true;
+    });
+
+    res.json({ success: true, data: uniqueNotes });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 export const getFavorites = async (req, res) => {
   try {
     const favCollections = await Collection.find({ user: req.user._id, isFavorite: true, isDeleted: false }).select('_id');

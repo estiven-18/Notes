@@ -36,6 +36,15 @@ export const getCollections = async () => {
   return data.data;
 };
 
+export const getCollection = async (id) => {
+  const response = await fetch(`${API_URL}/collections/${id}`, {
+    headers: getAuthHeaders(),
+  });
+  const data = await response.json();
+  if (!data.success) throw new Error(data.message);
+  return data.data;
+};
+
 export const createCollection = async (name) => {
   const response = await fetch(`${API_URL}/collections`, {
     method: "POST",
@@ -47,11 +56,33 @@ export const createCollection = async (name) => {
   return data.data;
 };
 
-export const renameCollection = async (id, name) => {
+export const renameCollection = async (id, name, emoji) => {
+  const body = { name };
+  if (emoji !== undefined) body.emoji = emoji;
   const response = await fetch(`${API_URL}/collections/${id}`, {
     method: "PUT",
     headers: getAuthHeaders(),
-    body: JSON.stringify({ name }),
+    body: JSON.stringify(body),
+  });
+  const data = await response.json();
+  if (!data.success) throw new Error(data.message);
+  return data.data;
+};
+
+export const publishCollection = async (id) => {
+  const response = await fetch(`${API_URL}/collections/${id}/publish`, {
+    method: "POST",
+    headers: getAuthHeaders(),
+  });
+  const data = await response.json();
+  if (!data.success) throw new Error(data.message);
+  return data.data;
+};
+
+export const unpublishCollection = async (id) => {
+  const response = await fetch(`${API_URL}/collections/${id}/unpublish`, {
+    method: "POST",
+    headers: getAuthHeaders(),
   });
   const data = await response.json();
   if (!data.success) throw new Error(data.message);
@@ -362,6 +393,15 @@ export const changeNoteShareRole = async (noteId, userId, role) => {
 
 export const getSharedNotes = async () => {
   const response = await fetch(`${API_URL}/document/shared/with-me`, {
+    headers: getAuthHeaders(),
+  });
+  const data = await response.json();
+  if (!data.success) throw new Error(data.message);
+  return data.data;
+};
+
+export const getAllNotes = async () => {
+  const response = await fetch(`${API_URL}/document/all`, {
     headers: getAuthHeaders(),
   });
   const data = await response.json();

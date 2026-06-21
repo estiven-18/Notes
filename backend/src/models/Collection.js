@@ -12,7 +12,15 @@ const collectionSchema = new mongoose.Schema({
     required: true,
     trim: true
   },
+  emoji: {
+    type: String,
+    default: null
+  },
   isFavorite: {
+    type: Boolean,
+    default: false
+  },
+  isPublic: {
     type: Boolean,
     default: false
   },

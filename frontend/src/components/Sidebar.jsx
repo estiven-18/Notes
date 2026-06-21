@@ -27,7 +27,7 @@ import ShareCollectionModal from "./ShareCollectionModal";
 import NotificationBell from "./NotificationBell";
 import ModalPortal from "./ModalPortal";
 
-const Sidebar = ({ activeNote, onSelectNote, onAddCollection, favoriteRefreshKey, sharedRefreshKey, onShowTrash, showTrash, trashRefreshKey, onToggleSidebar }) => {
+const Sidebar = ({ activeNote, onSelectNote, onAddCollection, favoriteRefreshKey, sharedRefreshKey, collectionRefreshKey, onShowTrash, showTrash, trashRefreshKey, onToggleSidebar, onNoteChange }) => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const activeNoteId = activeNote?._id;
@@ -116,7 +116,7 @@ const Sidebar = ({ activeNote, onSelectNote, onAddCollection, favoriteRefreshKey
       }
     });
     return () => { cancelled = true; };
-  }, [loadCollections, trashRefreshKey]);
+  }, [loadCollections, trashRefreshKey, collectionRefreshKey]);
 
   useEffect(() => {
     let cancelled = false;
@@ -323,6 +323,7 @@ const Sidebar = ({ activeNote, onSelectNote, onAddCollection, favoriteRefreshKey
       const notes = await getNotesByCollection(colId);
       setNotesMap((prev) => ({ ...prev, [colId]: notes }));
       onSelectNote({ ...note });
+      onNoteChange?.();
     } catch (err) {
       alert("Error al crear nota: " + err.message);
     }
@@ -336,6 +337,7 @@ const Sidebar = ({ activeNote, onSelectNote, onAddCollection, favoriteRefreshKey
       const notes = await getNotesByCollection(colId);
       setNotesMap((prev) => ({ ...prev, [colId]: notes }));
       refreshFavorites();
+      onNoteChange?.();
     } catch (err) {
       alert("Error: " + err.message);
     }
@@ -414,19 +416,38 @@ const Sidebar = ({ activeNote, onSelectNote, onAddCollection, favoriteRefreshKey
     <div key={col._id} className="sidebar-collection">
       <div
         className="sidebar-collection-header"
-        onClick={() => onToggle(col._id)}
       >
-        <span className={`sidebar-chevron ${expandMap[col._id] ? "open" : ""}`}>
+        <span
+          className={`sidebar-chevron ${expandMap[col._id] ? "open" : ""}`}
+          onClick={() => onToggle(col._id)}
+          style={{ cursor: "pointer", padding: "2px" }}
+        >
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" width="12" height="12">
             <path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
           </svg>
         </span>
-        <span className="sidebar-collection-icon">
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" width="16" height="16">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 12.75V12A2.25 2.25 0 0 1 4.5 9.75h15A2.25 2.25 0 0 1 21.75 12v.75m-8.69-6.44-2.12-2.12a1.5 1.5 0 0 0-1.061-.44H4.5A2.25 2.25 0 0 0 2.25 6v12a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9a2.25 2.25 0 0 0-2.25-2.25h-5.379a1.5 1.5 0 0 1-1.06-.44Z" />
-          </svg>
+        <span
+          className="sidebar-collection-icon"
+          onClick={() => navigate(`/collection/${col._id}`)}
+          title={`Abrir colección "${col.name}"`}
+          style={{ cursor: "pointer" }}
+        >
+          {col.emoji ? (
+            <span style={{ fontSize: 16 }}>{col.emoji}</span>
+          ) : (
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" width="16" height="16">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 12.75V12A2.25 2.25 0 0 1 4.5 9.75h15A2.25 2.25 0 0 1 21.75 12v.75m-8.69-6.44-2.12-2.12a1.5 1.5 0 0 0-1.061-.44H4.5A2.25 2.25 0 0 0 2.25 6v12a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9a2.25 2.25 0 0 0-2.25-2.25h-5.379a1.5 1.5 0 0 1-1.06-.44Z" />
+            </svg>
+          )}
         </span>
-        <span className="sidebar-collection-name">{col.name}</span>
+        <span
+          className="sidebar-collection-name"
+          onClick={() => navigate(`/collection/${col._id}`)}
+          title={`Abrir colección "${col.name}"`}
+          style={{ cursor: "pointer", flex: 1 }}
+        >
+          {col.name}
+        </span>
         <button
           className={`sidebar-collection-star ${col.isFavorite ? "favorited" : ""}`}
           onClick={(e) => handleToggleCollectionFavorite(e, col._id)}
@@ -536,6 +557,15 @@ const Sidebar = ({ activeNote, onSelectNote, onAddCollection, favoriteRefreshKey
     <aside className="sidebar">
       <div className="sidebar-header" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
         <span className="sidebar-title">Notes</span>
+        <button
+          onClick={() => navigate('/library')}
+          className="sidebar-library-btn"
+          title="Library"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" width="14" height="14">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.042A8.967 8.967 0 0 0 6 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 0 1 6 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 0 1 6-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0 0 18 18a8.967 8.967 0 0 0-6 2.292m0-14.25v14.25" />
+          </svg>
+        </button>
         <div style={{ flex: 1 }} />
         <NotificationBell onRefresh={refreshCollections} />
         <button
@@ -928,11 +958,22 @@ const Sidebar = ({ activeNote, onSelectNote, onAddCollection, favoriteRefreshKey
                       </svg>
                     </span>
                     <span className="sidebar-collection-icon">
-                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" width="16" height="16">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M18 7.5v3m0 0v3m0-3h3m-3 0h-3m-2.25-4.125a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0ZM3 19.235v-.11a6.375 6.375 0 0 1 12.75 0v.109A12.318 12.318 0 0 1 9.374 21c-2.331 0-4.512-.645-6.374-1.766Z" />
-                      </svg>
+                      {col.emoji ? (
+                        <span style={{ fontSize: 16 }}>{col.emoji}</span>
+                      ) : (
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" width="16" height="16">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M18 7.5v3m0 0v3m0-3h3m-3 0h-3m-2.25-4.125a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0ZM3 19.235v-.11a6.375 6.375 0 0 1 12.75 0v.109A12.318 12.318 0 0 1 9.374 21c-2.331 0-4.512-.645-6.374-1.766Z" />
+                        </svg>
+                      )}
                     </span>
-                    <span className="sidebar-collection-name">{col.name}</span>
+                    <span
+                      className="sidebar-collection-name"
+                      onClick={() => navigate(`/collection/${col._id}`)}
+                      title={`Abrir colección "${col.name}"`}
+                      style={{ cursor: "pointer", flex: 1 }}
+                    >
+                      {col.name}
+                    </span>
                     <span className="shared-badge" title={`Compartido por ${col.user?.name || 'usuario'}`}>compartido</span>
                   </div>
       {expandedShared[col._id] && (

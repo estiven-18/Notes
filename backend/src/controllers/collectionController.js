@@ -2,6 +2,7 @@ import Collection from "../models/Collection.js";
 import Document from "../models/Document.js";
 import User from "../models/User.js";
 import Notification from "../models/Notification.js";
+import crypto from "crypto";
 
 export const getCollections = async (req, res) => {
   try {
@@ -9,6 +10,20 @@ export const getCollections = async (req, res) => {
       .populate('sharedWith.user', 'name email')
       .sort({ updatedAt: -1 });
     res.json({ success: true, data: collections });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const getCollection = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const collection = await Collection.findOne({ _id: id, user: req.user._id })
+      .populate('sharedWith.user', 'name email');
+    if (!collection) {
+      return res.status(404).json({ success: false, message: "Colección no encontrada" });
+    }
+    res.json({ success: true, data: collection });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -32,15 +47,17 @@ export const createCollection = async (req, res) => {
 export const updateCollection = async (req, res) => {
   try {
     const { id } = req.params;
-    const { name } = req.body;
+    const { name, emoji } = req.body;
     if (!name || !name.trim()) {
       return res
         .status(400)
         .json({ success: false, message: "El nombre es requerido" });
     }
+    const updateData = { name: name.trim() };
+    if (emoji !== undefined) updateData.emoji = emoji;
     const collection = await Collection.findOneAndUpdate(
       { _id: id, user: req.user._id },
-      { name: name.trim() },
+      updateData,
       { new: true, runValidators: true },
     );
     if (!collection) {
@@ -127,7 +144,8 @@ export const getNotesByCollection = async (req, res) => {
       return res.status(403).json({ success: false, message: "No tienes acceso a esta colección" });
     }
     const notes = await Document.find({ collectionId: id, isDeleted: false })
-      .select("title emoji createdAt updatedAt metadata.isFavorite")
+      .select("title emoji createdAt updatedAt metadata.isFavorite user isPublic sharedWith")
+      .populate("user", "name email")
       .sort({ updatedAt: -1 });
     res.json({ success: true, data: notes });
   } catch (error) {
@@ -230,6 +248,10 @@ export const removeShare = async (req, res) => {
     }
     collection.sharedWith = collection.sharedWith.filter((s) => !s.user.equals(userId));
     await collection.save();
+    await Document.updateMany(
+      { collectionId: collection._id },
+      { $pull: { sharedWith: { user: userId } } },
+    );
     const populated = await Collection.populate(collection, { path: 'sharedWith.user', select: 'name email' });
     res.json({ success: true, data: populated });
   } catch (error) {
@@ -254,6 +276,10 @@ export const changeShareRole = async (req, res) => {
     }
     entry.role = role;
     await collection.save();
+    await Document.updateMany(
+      { collectionId: collection._id, 'sharedWith.user': userId },
+      { $set: { 'sharedWith.$.role': role } },
+    );
     const populated = await Collection.populate(collection, { path: 'sharedWith.user', select: 'name email' });
     res.json({ success: true, data: populated });
   } catch (error) {
@@ -341,7 +367,7 @@ export const createNote = async (req, res) => {
   try {
     const { id } = req.params;
     const { title, emoji } = req.body;
-    const collection = await Collection.findById(id).select('isFavorite sharedWith user');
+    const collection = await Collection.findById(id).select('isFavorite sharedWith user isPublic');
     if (!collection) {
       return res.status(404).json({ success: false, message: "Colección no encontrada" });
     }
@@ -349,15 +375,64 @@ export const createNote = async (req, res) => {
       return res.status(403).json({ success: false, message: "Solo el propietario puede crear notas en esta colección" });
     }
     const isFavorite = collection.isFavorite || false;
+    const sharedWith = (collection.sharedWith || []).map(s => ({ user: s.user, role: s.role }));
     const note = await Document.create({
       user: req.user._id,
       title: title || "Nueva nota",
       emoji: emoji || null,
       collectionId: id,
+      isPublic: collection.isPublic || false,
       metadata: { isFavorite },
+      sharedWith,
       content: [{ type: "paragraph", content: [], id: "block-" + Date.now() }],
     });
     res.status(201).json({ success: true, data: note });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const publishCollection = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const collection = await Collection.findOne({ _id: id, user: req.user._id });
+    if (!collection) {
+      return res.status(404).json({ success: false, message: "Colección no encontrada" });
+    }
+    if (collection.isPublic) {
+      return res.status(400).json({ success: false, message: "La colección ya es pública" });
+    }
+    collection.isPublic = true;
+    await collection.save();
+    const notes = await Document.find({ collectionId: collection._id, isDeleted: false });
+    for (const note of notes) {
+      note.isPublic = true;
+      if (!note.publicId) note.publicId = crypto.randomUUID().slice(0, 10);
+      await note.save();
+    }
+    res.json({ success: true, data: collection });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const unpublishCollection = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const collection = await Collection.findOne({ _id: id, user: req.user._id });
+    if (!collection) {
+      return res.status(404).json({ success: false, message: "Colección no encontrada" });
+    }
+    if (!collection.isPublic) {
+      return res.status(400).json({ success: false, message: "La colección no es pública" });
+    }
+    collection.isPublic = false;
+    await collection.save();
+    await Document.updateMany(
+      { collectionId: collection._id, isDeleted: false },
+      { $set: { isPublic: false, publicId: null } }
+    );
+    res.json({ success: true, data: collection });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

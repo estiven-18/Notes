@@ -18,6 +18,7 @@ import {
   publishNote,
   unpublishNote,
   getPublicNote,
+  getAllNotes,
 } from '../controllers/documentController.js';
 import { auth } from '../middleware/auth.js';
 
@@ -35,6 +36,7 @@ router.post('/:id/restore', restoreDocument);
 router.post('/:id/permanent', permanentDeleteDocument);
 
 router.get('/shared/with-me', getSharedNotes);
+router.get('/all', getAllNotes);
 router.get('/favorites/all', getFavorites);
 router.get('/trash', getTrashItems);
 router.post('/:id/favorite', toggleFavorite);
