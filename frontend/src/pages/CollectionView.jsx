@@ -5,8 +5,6 @@ import {
   getCollection,
   getNotesByCollection,
   renameCollection,
-  publishCollection,
-  unpublishCollection,
 } from "../services/api";
 
 const CollectionView = ({ onCollectionUpdate }) => {
@@ -69,20 +67,6 @@ const CollectionView = ({ onCollectionUpdate }) => {
     }
   };
 
-  const handleTogglePublish = async () => {
-    try {
-      if (collection.isPublic) {
-        const updated = await unpublishCollection(collectionId);
-        setCollection(updated);
-      } else {
-        const updated = await publishCollection(collectionId);
-        setCollection(updated);
-      }
-    } catch (err) {
-      alert("Error al cambiar visibilidad: " + err.message);
-    }
-  };
-
   const getRelativeTime = (timestamp) => {
     if (!timestamp) return "";
     const diff = now - new Date(timestamp).getTime();
@@ -129,32 +113,6 @@ const CollectionView = ({ onCollectionUpdate }) => {
             placeholder="Sin título"
           />
         </div>
-      </div>
-
-      <div className="collection-dashboard">
-        <div className="collection-stat">
-          <span className="collection-stat-value">{notes.length}</span>
-          <span className="collection-stat-label">{notes.length === 1 ? 'Página' : 'Páginas'}</span>
-        </div>
-        <div className="collection-stat">
-          <span className="collection-stat-value">{collection.sharedWith?.length || 0}</span>
-          <span className="collection-stat-label">{(collection.sharedWith?.length || 0) === 1 ? 'Persona' : 'Personas'}</span>
-        </div>
-        <div className="collection-stat">
-          <span className="collection-stat-value">{collection.isPublic ? 'Sí' : 'No'}</span>
-          <span className="collection-stat-label">Pública</span>
-        </div>
-        <div className="collection-stat">
-          <span className="collection-stat-value">{notes.filter(n => n.metadata?.isFavorite).length}</span>
-          <span className="collection-stat-label">Favoritas</span>
-        </div>
-        <button
-          className={`collection-stat collection-stat-btn ${collection.isPublic ? 'collection-unpublish-btn' : 'collection-publish-btn'}`}
-          onClick={handleTogglePublish}
-        >
-          <span className="collection-stat-value">{collection.isPublic ? '🔒' : '🌐'}</span>
-          <span className="collection-stat-label">{collection.isPublic ? 'Hacer privada' : 'Hacer pública'}</span>
-        </button>
       </div>
 
       <div className="library-table-wrapper">
