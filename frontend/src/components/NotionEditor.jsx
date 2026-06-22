@@ -5,13 +5,15 @@ import { BlockNoteView } from "@blocknote/mantine";
 import "@blocknote/mantine/style.css";
 import * as Y from "yjs";
 import { WebsocketProvider } from "y-websocket";
-  import { getNoteById, updateNoteById, toggleFavorite, shareNote, removeNoteShare, changeNoteShareRole, uploadFile, publishNote, unpublishNote } from "../services/api";
+import { getNoteById, updateNoteById, toggleFavorite, shareNote, removeNoteShare, changeNoteShareRole, uploadFile, publishNote, unpublishNote } from "../services/api";
 import { es } from "@blocknote/core/locales";
 import SavingIndicator from "./SavingIndicator";
 import EmojiPicker from "./EmojiPicker";
 import ShareNoteModal from "./ShareNoteModal";
 import ModalPortal from "./ModalPortal";
 import CoverPicker from "./CoverPicker";
+import { PDFExporter, pdfDefaultSchemaMappings } from "@blocknote/xl-pdf-exporter";
+import { pdf, Text, View, Image, StyleSheet } from "@react-pdf/renderer";
 const userColors = [
   "#ff6b6b", "#ffa94d", "#ffd43b", "#69db7c", "#38d9a9",
   "#4dabf7", "#748ffc", "#da77f2", "#f783ac", "#63e6be",
@@ -63,6 +65,7 @@ const EditorInner = ({ noteId, currentUser, onTitleChange, onEmojiChange, onFavo
   const [coverUrl, setCoverUrl] = useState(null);
   const [coverPosition, setCoverPosition] = useState(0);
   const [showSharedList, setShowSharedList] = useState(false);
+  const [isExportingPdf, setIsExportingPdf] = useState(false);
   const titleTimeoutRef = useRef(null);
   const isSavingRef = useRef(false);
   const titleInputRef = useRef(null);
@@ -123,6 +126,68 @@ const EditorInner = ({ noteId, currentUser, onTitleChange, onEmojiChange, onFavo
       isSavingRef.current = false;
     }
   }, [noteId, editor]);
+
+  const exportToPdf = useCallback(async () => {
+    if (!editor || isExportingPdf) return;
+    setIsExportingPdf(true);
+    try {
+      const exporter = new PDFExporter(editor.schema, pdfDefaultSchemaMappings);
+
+      const header = (
+        <View style={styles.header}>
+          <View style={styles.titleContainer}>
+            {emoji && <Text style={styles.emoji}>{emoji}</Text>}
+            <Text style={styles.title}>{title || "Sin título"}</Text>
+          </View>
+        </View>
+      );
+
+      const pdfDocument = await exporter.toReactPDFDocument(editor.document, {
+        header,
+      });
+      const blob = await pdf(pdfDocument).toBlob();
+      const link = document.createElement("a");
+      link.href = window.URL.createObjectURL(blob);
+      link.download = `${title || "nota"}.pdf`;
+      document.body.appendChild(link);
+      link.dispatchEvent(
+        new MouseEvent("click", {
+          bubbles: true,
+          cancelable: true,
+          view: window,
+        })
+      );
+      link.remove();
+      window.URL.revokeObjectURL(link.href);
+    } catch (err) {
+      console.error("Error al exportar a PDF:", err);
+      alert("Error al exportar a PDF: " + err.message);
+    } finally {
+      setIsExportingPdf(false);
+    }
+  }, [editor, title, emoji, isExportingPdf]);
+
+  const styles = StyleSheet.create({
+    header: {
+      marginBottom: 20,
+      paddingBottom: 10,
+      borderBottomWidth: 1,
+      borderBottomColor: '#e0e0e0',
+    },
+    titleContainer: {
+      flexDirection: 'column',
+      alignItems: 'flex-start',
+      gap: 12,
+    },
+    emoji: {
+      fontSize: 32,
+    },
+    title: {
+      fontSize: 24,
+      fontWeight: 'bold',
+      color: '#1a1a1a',
+    },
+  });
 
   useEffect(() => {
     if (!editor) return;
@@ -381,6 +446,17 @@ const EditorInner = ({ noteId, currentUser, onTitleChange, onEmojiChange, onFavo
         </div>
         <div className="editor-topbar-right">
           <SavingIndicator lastSaved={lastSaved} />
+          <button
+            className="editor-star-btn"
+            onClick={exportToPdf}
+            disabled={isExportingPdf}
+            title="Exportar a PDF"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" width="16" height="16">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+            </svg>
+            {isExportingPdf && <span style={{marginLeft: 4}}>Exportando...</span>}
+          </button>
           {noteSharedWith.length > 0 && (
             <span
               className="shared-count-badge"
