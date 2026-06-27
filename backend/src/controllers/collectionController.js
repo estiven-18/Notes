@@ -18,10 +18,15 @@ export const getCollections = async (req, res) => {
 export const getCollection = async (req, res) => {
   try {
     const { id } = req.params;
-    const collection = await Collection.findOne({ _id: id, user: req.user._id })
+    const collection = await Collection.findById(id)
       .populate('sharedWith.user', 'name email');
     if (!collection) {
       return res.status(404).json({ success: false, message: "Colección no encontrada" });
+    }
+    const isOwner = collection.user.equals(req.user._id);
+    const isShared = collection.sharedWith.some((s) => s.user.equals(req.user._id));
+    if (!isOwner && !isShared) {
+      return res.status(403).json({ success: false, message: "No tienes acceso a esta colección" });
     }
     res.json({ success: true, data: collection });
   } catch (error) {
@@ -166,6 +171,21 @@ export const toggleCollectionFavorite = async (req, res) => {
       { collectionId: id, user: req.user._id },
       { $set: { "metadata.isFavorite": collection.isFavorite } },
     );
+    res.json({ success: true, data: collection });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const toggleHideFromRecents = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const collection = await Collection.findOne({ _id: id, user: req.user._id });
+    if (!collection) {
+      return res.status(404).json({ success: false, message: "Colección no encontrada" });
+    }
+    collection.hiddenFromRecents = !collection.hiddenFromRecents;
+    await collection.save();
     res.json({ success: true, data: collection });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -334,7 +354,7 @@ export const search = async (req, res) => {
     }).select('name').lean();
 
     const allNotes = await Document.find({ collectionId: { $in: allIds } })
-      .select('title emoji content collectionId')
+      .select('title emoji content collectionId coverUrl')
       .populate('collectionId', 'name')
       .lean();
 
@@ -347,6 +367,7 @@ export const search = async (req, res) => {
       _id: note._id,
       title: note.title,
       emoji: note.emoji,
+      coverUrl: note.coverUrl,
       collectionId: note.collectionId?._id,
       collectionName: note.collectionId?.name || 'Sin nombre',
     }));

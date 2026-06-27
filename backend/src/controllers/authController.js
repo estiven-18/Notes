@@ -72,28 +72,30 @@ export const updateProfile = async (req, res) => {
   try {
     const { name, email, password } = req.body;
 
-    if (!name || !email) {
-      return res.status(400).json({ success: false, message: 'Nombre y email son requeridos' });
-    }
-
-    const existing = await User.findOne({ email: email.toLowerCase(), _id: { $ne: req.user._id } });
-    if (existing) {
-      return res.status(409).json({ success: false, message: 'El email ya está en uso' });
-    }
-
     const user = await User.findById(req.user._id);
     if (!user) {
       return res.status(404).json({ success: false, message: 'Usuario no encontrado' });
     }
 
-    user.name = name;
-    user.email = email.toLowerCase();
+    if (email && email !== user.email) {
+      const existing = await User.findOne({ email: email.toLowerCase(), _id: { $ne: req.user._id } });
+      if (existing) {
+        return res.status(409).json({ success: false, message: 'El email ya está en uso' });
+      }
+      user.email = email.toLowerCase();
+    }
+
+    if (name !== undefined) {
+      user.name = name;
+    }
+
     if (password) {
       if (password.length < 6) {
         return res.status(400).json({ success: false, message: 'La contraseña debe tener al menos 6 caracteres' });
       }
       user.password = password;
     }
+
     await user.save();
 
     res.json({

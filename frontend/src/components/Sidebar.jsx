@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback, useMemo, startTransition } from "react";
-import { useDispatch } from "react-redux";
+import React from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
+import { useSelector } from "react-redux";
 import ThemeToggle from "./ThemeToggle";
 import {
   getCollections,
@@ -16,21 +17,26 @@ import {
   removeShare,
   getSharedCollections,
   getSharedNotes,
-  searchNotes,
   changeShareRole,
   getTrashItems,
 } from "../services/api";
-import { logout } from "../store/authSlice";
-import { useNavigate } from "react-router-dom";
+
+import { useNavigate, useLocation } from "react-router-dom";
 import CreateModal from "./CreateModal";
 import ShareCollectionModal from "./ShareCollectionModal";
+import SettingsModal from "./SettingsModal";
+import SearchModal from "./SearchModal";
 import NotificationBell from "./NotificationBell";
 import ModalPortal from "./ModalPortal";
+import ConfirmModal from "./ConfirmModal";
 
 const Sidebar = ({ activeNote, onSelectNote, onAddCollection, favoriteRefreshKey, sharedRefreshKey, collectionRefreshKey, onShowTrash, showTrash, trashRefreshKey, onToggleSidebar, onNoteChange }) => {
-  const dispatch = useDispatch();
   const navigate = useNavigate();
+  const location = useLocation();
+  const user = useSelector((state) => state.auth.user);
   const activeNoteId = activeNote?._id;
+  const activeCollectionId = location.pathname.startsWith('/collection/') ? location.pathname.split('/')[2] : null;
+  const [showUserMenu, setShowUserMenu] = useState(false);
   const [collections, setCollections] = useState([]);
   const [favorites, setFavorites] = useState([]);
   const [favoriteCollections, setFavoriteCollections] = useState([]);
@@ -53,6 +59,20 @@ const Sidebar = ({ activeNote, onSelectNote, onAddCollection, favoriteRefreshKey
   const [expandedPrivadas, setExpandedPrivadas] = useState({});
   const [notesMap, setNotesMap] = useState({});
   const [showCollectionModal, setShowCollectionModal] = useState(false);
+  const [showSidebarCustomize, setShowSidebarCustomize] = useState(false);
+  const [sidebarSections, setSidebarSections] = useState(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem('sidebarSectionOrder'));
+      if (saved) return saved;
+    } catch {/* ignore */}
+    return [
+      { id: 'recientes', label: 'Recientes', visible: true },
+      { id: 'publicas', label: 'Públicas', visible: true },
+      { id: 'privadas', label: 'Privadas', visible: true },
+      { id: 'favoritos', label: 'Favoritos', visible: true },
+      { id: 'compartidas', label: 'Compartidas', visible: true },
+    ];
+  });
   const [collectionsOpen, setCollectionsOpen] = useState(() => {
     try { const s = JSON.parse(localStorage.getItem('sidebarSections')); if (s?.collectionsOpen !== undefined) return s.collectionsOpen; } catch {/* ignore */}
     return true;
@@ -80,12 +100,10 @@ const Sidebar = ({ activeNote, onSelectNote, onAddCollection, favoriteRefreshKey
   });
   const [sharedNotes, setSharedNotes] = useState([]);
 
-  const [searchQuery, setSearchQuery] = useState("");
-  const [searchResults, setSearchResults] = useState({ collections: [], notes: [] });
-  const [searching, setSearching] = useState(false);
   const [trashCount, setTrashCount] = useState(0);
-
-  const publicCollections = useMemo(() => collections.filter(c => c.sharedWith?.length > 0), [collections]);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [showSearch, setShowSearch] = useState(false);
+  const [confirmModal, setConfirmModal] = useState(null);  const publicCollections = useMemo(() => collections.filter(c => c.sharedWith?.length > 0), [collections]);
   const privateCollections = useMemo(() => collections.filter(c => !c.sharedWith || c.sharedWith.length === 0), [collections]);
 
   const loadCollections = useCallback(async () => {
@@ -211,25 +229,6 @@ const Sidebar = ({ activeNote, onSelectNote, onAddCollection, favoriteRefreshKey
     }));
   }, [collectionsOpen, publicasOpen, privadasOpen, favoritesOpen, sharedOpen]);
 
-  useEffect(() => {
-    if (!searchQuery.trim()) {
-      startTransition(() => setSearchResults({ collections: [], notes: [] }));
-      return;
-    }
-    const timer = setTimeout(async () => {
-      setSearching(true);
-      try {
-        const results = await searchNotes(searchQuery.trim());
-        setSearchResults(results);
-      } catch {
-        setSearchResults({ collections: [], notes: [] });
-      } finally {
-        setSearching(false);
-      }
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [searchQuery]);
-
   const toggleExpand = async (colId) => {
     const next = { ...expanded, [colId]: !expanded[colId] };
     setExpanded(next);
@@ -329,18 +328,27 @@ const Sidebar = ({ activeNote, onSelectNote, onAddCollection, favoriteRefreshKey
     }
   };
 
-  const handleDeleteNote = async (e, noteId, colId) => {
+  const handleDeleteNote = async (e, noteId, colId, noteName) => {
     e.stopPropagation();
-    if (!confirm("Eliminar esta nota?")) return;
-    try {
-      await deleteNote(noteId);
-      const notes = await getNotesByCollection(colId);
-      setNotesMap((prev) => ({ ...prev, [colId]: notes }));
-      refreshFavorites();
-      onNoteChange?.();
-    } catch (err) {
-      alert("Error: " + err.message);
-    }
+    const name = noteName || 'Sin título';
+    setConfirmModal({
+      title: "¿Quieres mover la nota a la papelera?",
+      message: `Se moverá "${name}" a la papelera.`,
+      confirmLabel: "Mover a la papelera",
+      danger: true,
+      onConfirm: async () => {
+        setConfirmModal(null);
+        try {
+          await deleteNote(noteId);
+          const notes = await getNotesByCollection(colId);
+          setNotesMap((prev) => ({ ...prev, [colId]: notes }));
+          refreshFavorites();
+          onNoteChange?.();
+        } catch (err) {
+          alert("Error: " + err.message);
+        }
+      },
+    });
   };
 
   const handleToggleFavorite = async (e, noteId) => {
@@ -355,7 +363,7 @@ const Sidebar = ({ activeNote, onSelectNote, onAddCollection, favoriteRefreshKey
   };
 
   const handleToggleCollectionFavorite = async (e, colId) => {
-    e.stopPropagation();
+    if (e) e.stopPropagation();
     try {
       await toggleCollectionFavorite(colId);
       refreshFavorites();
@@ -401,44 +409,54 @@ const Sidebar = ({ activeNote, onSelectNote, onAddCollection, favoriteRefreshKey
     }
   };
 
-  const handleDeleteCollection = async (e, colId) => {
-    e.stopPropagation();
-    if (!confirm("Eliminar esta colección y todas sus notas?")) return;
-    try {
-      await deleteCollection(colId);
-      await refreshCollections();
-    } catch (err) {
-      alert("Error: " + err.message);
-    }
+  const handleDeleteCollection = async (e, colId, colName) => {
+    if (e) e.stopPropagation();
+    const name = colName || 'Sin nombre';
+    setConfirmModal({
+      title: "¿Quieres mover la colección a la papelera?",
+      message: `Se moverán todas las páginas de "${name}" a la papelera.`,
+      confirmLabel: "Mover a la papelera",
+      danger: true,
+      onConfirm: async () => {
+        setConfirmModal(null);
+        try {
+          await deleteCollection(colId);
+          await refreshCollections();
+        } catch (err) {
+          alert("Error: " + err.message);
+        }
+      },
+    });
   };
 
   const renderCollection = (col, showCreate, expandMap = expanded, onToggle = toggleExpand) => (
     <div key={col._id} className="sidebar-collection">
       <div
-        className="sidebar-collection-header"
+        className={`sidebar-collection-header ${activeCollectionId === col._id ? "active" : ""}`}
       >
-        <span
-          className={`sidebar-chevron ${expandMap[col._id] ? "open" : ""}`}
-          onClick={() => onToggle(col._id)}
-          style={{ cursor: "pointer", padding: "2px" }}
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" width="12" height="12">
-            <path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
-          </svg>
-        </span>
-        <span
-          className="sidebar-collection-icon"
-          onClick={() => navigate(`/collection/${col._id}`)}
-          title={`Abrir colección "${col.name}"`}
-          style={{ cursor: "pointer" }}
-        >
-          {col.emoji ? (
-            <span style={{ fontSize: 16 }}>{col.emoji}</span>
-          ) : (
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" width="16" height="16">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 12.75V12A2.25 2.25 0 0 1 4.5 9.75h15A2.25 2.25 0 0 1 21.75 12v.75m-8.69-6.44-2.12-2.12a1.5 1.5 0 0 0-1.061-.44H4.5A2.25 2.25 0 0 0 2.25 6v12a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9a2.25 2.25 0 0 0-2.25-2.25h-5.379a1.5 1.5 0 0 1-1.06-.44Z" />
+        <span className="sidebar-collection-icon-wrapper">
+          <span
+            className="sidebar-collection-icon"
+            onClick={() => navigate(`/collection/${col._id}`)}
+            style={{ cursor: "pointer" }}
+          >
+            {col.emoji ? (
+              <span style={{ fontSize: 14, lineHeight: 1 }}>{col.emoji}</span>
+            ) : (
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" width="15" height="15">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 12.75V12A2.25 2.25 0 0 1 4.5 9.75h15A2.25 2.25 0 0 1 21.75 12v.75m-8.69-6.44-2.12-2.12a1.5 1.5 0 0 0-1.061-.44H4.5A2.25 2.25 0 0 0 2.25 6v12a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9a2.25 2.25 0 0 0-2.25-2.25h-5.379a1.5 1.5 0 0 1-1.06-.44Z" />
+              </svg>
+            )}
+          </span>
+          <span
+            className={`sidebar-collection-chevron ${expandMap[col._id] ? "open" : ""}`}
+            onClick={() => onToggle(col._id)}
+            style={{ cursor: "pointer" }}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" width="12" height="12">
+              <path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
             </svg>
-          )}
+          </span>
         </span>
         <span
           className="sidebar-collection-name"
@@ -451,27 +469,29 @@ const Sidebar = ({ activeNote, onSelectNote, onAddCollection, favoriteRefreshKey
         <button
           className={`sidebar-collection-star ${col.isFavorite ? "favorited" : ""}`}
           onClick={(e) => handleToggleCollectionFavorite(e, col._id)}
-          title={col.isFavorite ? "Quitar de favoritos" : "Añadir colección a favoritos"}
+          title={col.isFavorite ? "Quitar de favoritos" : "Añadir a favoritos"}
         >
-          <svg xmlns="http://www.w3.org/2000/svg" fill={col.isFavorite ? "currentColor" : "none"} viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" width="14" height="14">
+          <svg xmlns="http://www.w3.org/2000/svg" fill={col.isFavorite ? "#f59e0b" : "none"} viewBox="0 0 24 24" strokeWidth="1.5" stroke={col.isFavorite ? "#f59e0b" : "currentColor"} width="15" height="15">
             <path strokeLinecap="round" strokeLinejoin="round" d="M11.48 3.499a.562.562 0 0 1 1.04 0l2.125 5.111a.563.563 0 0 0 .475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 0 0-.182.557l1.285 5.385a.562.562 0 0 1-.84.61l-4.725-2.885a.562.562 0 0 0-.586 0L6.982 20.54a.562.562 0 0 1-.84-.61l1.285-5.386a.562.562 0 0 0-.182-.557l-4.204-3.602a.562.562 0 0 1 .321-.988l5.518-.442a.563.563 0 0 0 .475-.345L11.48 3.5Z" />
           </svg>
         </button>
         <button
           className="sidebar-collection-share"
           onClick={(e) => { e.stopPropagation(); setShareModalCol(col); }}
-          title="Compartir colección"
+          title="Compartir"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" width="14" height="14">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" width="15" height="15">
             <path strokeLinecap="round" strokeLinejoin="round" d="M7.217 10.907a2.25 2.25 0 1 0 0 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186 9.566-5.314m-9.566 7.5 9.566 5.314m0 0a2.25 2.25 0 1 0 3.935 2.186 2.25 2.25 0 0 0-3.935-2.186Zm0-12.814a2.25 2.25 0 1 0 3.933-2.185 2.25 2.25 0 0 0-3.933 2.185Z" />
           </svg>
         </button>
         <button
           className="sidebar-collection-delete"
-          onClick={(e) => handleDeleteCollection(e, col._id)}
-          title="Eliminar colección"
+          onClick={(e) => handleDeleteCollection(e, col._id, col.name)}
+          title="Eliminar"
         >
-          ×
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" width="15" height="15">
+            <path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21q.512.078 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48 48 0 0 0-3.478-.397m-12 .562q.51-.089 1.022-.165m0 0a48 48 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a52 52 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a49 49 0 0 0-7.5 0" />
+          </svg>
         </button>
       </div>
 
@@ -514,7 +534,7 @@ const Sidebar = ({ activeNote, onSelectNote, onAddCollection, favoriteRefreshKey
                   <span className="sidebar-note-icon">{noteEmoji}</span>
                 ) : noteEmoji === null ? (
                   <span className="sidebar-note-icon">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" width="14" height="14">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" width="15" height="15">
                       <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
                     </svg>
                   </span>
@@ -525,16 +545,18 @@ const Sidebar = ({ activeNote, onSelectNote, onAddCollection, favoriteRefreshKey
                   onClick={(e) => handleToggleFavorite(e, note._id)}
                   title={note.metadata?.isFavorite ? "Quitar de favoritos" : "Añadir a favoritos"}
                 >
-                  <svg xmlns="http://www.w3.org/2000/svg" fill={note.metadata?.isFavorite ? "currentColor" : "none"} viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" width="14" height="14">
+                  <svg xmlns="http://www.w3.org/2000/svg" fill={note.metadata?.isFavorite ? "currentColor" : "none"} viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" width="15" height="15">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M11.48 3.499a.562.562 0 0 1 1.04 0l2.125 5.111a.563.563 0 0 0 .475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 0 0-.182.557l1.285 5.385a.562.562 0 0 1-.84.61l-4.725-2.885a.562.562 0 0 0-.586 0L6.982 20.54a.562.562 0 0 1-.84-.61l1.285-5.386a.562.562 0 0 0-.182-.557l-4.204-3.602a.562.562 0 0 1 .321-.988l5.518-.442a.563.563 0 0 0 .475-.345L11.48 3.5Z" />
-                  </svg>
+                   </svg>
                 </button>
                 <button
                   className="sidebar-note-delete"
-                  onClick={(e) => handleDeleteNote(e, note._id, col._id)}
+                  onClick={(e) => handleDeleteNote(e, note._id, col._id, note.title)}
                   title="Eliminar nota"
                 >
-                  ×
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" width="15" height="15">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21q.512.078 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48 48 0 0 0-3.478-.397m-12 .562q.51-.089 1.022-.165m0 0a48 48 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a52 52 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a49 49 0 0 0-7.5 0" />
+                  </svg>
                 </button>
               </div>
             );
@@ -555,469 +577,477 @@ const Sidebar = ({ activeNote, onSelectNote, onAddCollection, favoriteRefreshKey
 
   return (
     <aside className="sidebar">
-      <div className="sidebar-header" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-        <span className="sidebar-title">Notes</span>
-        <button
-          onClick={() => navigate('/library')}
-          className="sidebar-library-btn"
-          title="Library"
+      <div className="sidebar-header" style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '0 12px', height: 44 }}>
+        <div
+          className="sidebar-workspace-btn"
+          onClick={() => setShowUserMenu(!showUserMenu)}
+          style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', flex: 1, padding: '4px 15px', borderRadius: 50, fontSize: 14, fontWeight: 500, color: 'var(--color-ink)' }}
         >
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" width="14" height="14">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.042A8.967 8.967 0 0 0 6 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 0 1 6 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 0 1 6-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0 0 18 18a8.967 8.967 0 0 0-6 2.292m0-14.25v14.25" />
-          </svg>
-        </button>
-        <div style={{ flex: 1 }} />
-        <NotificationBell onRefresh={refreshCollections} />
-        <button
-          onClick={() => navigate('/profile')}
-          style={{ background: 'none', border: 'none', color: 'var(--color-gray-500)', cursor: 'pointer', fontSize: 12, padding: '4px 8px' }}
-          title="Editar perfil"
-        >
-          Perfil
-        </button>
-        <button
-          onClick={() => dispatch(logout())}
-          style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', fontSize: 12, padding: '4px 8px' }}
-          title="Cerrar sesión"
-        >
-          Salir
-        </button>
+          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user?.name || 'Notes'}</span>
+        </div>
         <button
           className="sidebar-collapse-btn"
           onClick={onToggleSidebar}
           title="Ocultar sidebar"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" width="18" height="18">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#999" strokeWidth="1.5" xmlns="http://www.w3.org/2000/svg">
+            <path strokeLinecap="round" strokeLinejoin="round" d="m18.75 4.5-7.5 7.5 7.5 7.5m-6-15L5.25 12l7.5 7.5" />
           </svg>
         </button>
       </div>
 
-      <div className="sidebar-search">
-        <input
-          className="sidebar-search-input"
-          type="text"
-          placeholder="Buscar notas, colecciones..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-        />
-        {(searchQuery.trim() && (searchResults.collections.length > 0 || searchResults.notes.length > 0 || searching)) && (
-          <div className="sidebar-search-results">
-            {searching ? (
-              <div className="sidebar-search-loading">Buscando...</div>
-            ) : (
-              <>
-                {searchResults.collections.map(col => (
-                  <div
-                    key={col._id}
-                    className="sidebar-search-item"
-                    onClick={() => {
-                      const inPublic = publicCollections.some(c => c._id === col._id);
-                      const inPrivate = privateCollections.some(c => c._id === col._id);
-                      const inShared = sharedCollections.some(c => c._id === col._id);
-                      if (inShared) setSharedOpen(true);
-                      if (inPublic) setPublicasOpen(true);
-                      if (inPrivate) setPrivadasOpen(true);
-                      if (inPublic) setExpandedPublicas((prev) => ({ ...prev, [col._id]: true }));
-                      if (inPrivate) setExpandedPrivadas((prev) => ({ ...prev, [col._id]: true }));
-                      if (inShared) setExpanded((prev) => ({ ...prev, [col._id]: true }));
-                      setSearchQuery("");
-                      setSearchResults({ collections: [], notes: [] });
-                    }}
-                  >
-                    <span className="sidebar-search-item-icon">
-                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" width="14" height="14">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 12.75V12A2.25 2.25 0 0 1 4.5 9.75h15A2.25 2.25 0 0 1 21.75 12v.75m-8.69-6.44-2.12-2.12a1.5 1.5 0 0 0-1.061-.44H4.5A2.25 2.25 0 0 0 2.25 6v12a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9a2.25 2.25 0 0 0-2.25-2.25h-5.379a1.5 1.5 0 0 1-1.06-.44Z" />
-                      </svg>
-                    </span>
-                    <span className="sidebar-search-item-name">{col.name}</span>
-                    <span className="sidebar-search-item-type">Colección</span>
-                  </div>
-                ))}
-                {searchResults.notes.map(note => (
-                  <div
-                    key={note._id}
-                    className="sidebar-search-item"
-                    onClick={() => {
-                      const inPublic = publicCollections.some(c => c._id === note.collectionId);
-                      const inPrivate = privateCollections.some(c => c._id === note.collectionId);
-                      const inShared = sharedCollections.some(c => c._id === note.collectionId);
-                      if (inShared) setSharedOpen(true);
-                      if (inPublic) setPublicasOpen(true);
-                      if (inPrivate) setPrivadasOpen(true);
-                      if (inPublic) setExpandedPublicas((prev) => ({ ...prev, [note.collectionId]: true }));
-                      if (inPrivate) setExpandedPrivadas((prev) => ({ ...prev, [note.collectionId]: true }));
-                      if (inShared) setExpanded((prev) => ({ ...prev, [note.collectionId]: true }));
-                      onSelectNote({
-                        _id: note._id,
-                        title: note.title || 'Sin título',
-                        emoji: note.emoji != null ? note.emoji : null,
-                        collectionId: note.collectionId,
-                      });
-                      setSearchQuery("");
-                      setSearchResults({ collections: [], notes: [] });
-                    }}
-                  >
-                    <span className="sidebar-search-item-icon">{note.emoji || '📄'}</span>
-                    <span className="sidebar-search-item-name">{note.title || 'Sin título'}</span>
-                    <span className="sidebar-search-item-type">{note.collectionName}</span>
-                  </div>
-                ))}
-              </>
-            )}
-          </div>
-        )}
-      </div>
+      {showUserMenu && (
+        <ModalPortal>
+          <SettingsModal isOpen={showUserMenu} onClose={() => setShowUserMenu(false)} />
+        </ModalPortal>
+      )}
 
-      <div className="sidebar-nav-header" onClick={() => { if (collectionsOpen) setExpanded({}); setCollectionsOpen((o) => !o); }}>
-        <span className={`sidebar-nav-chevron ${collectionsOpen ? "open" : ""}`}>
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" width="12" height="12">
-            <path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
+      <div className="sidebar-nav-icons">
+        <button className="sidebar-nav-icon-btn" title="Inicio" onClick={() => navigate('/library')}>
+          <svg xmlns="http://www.w3.org/2000/svg" fill="#999" viewBox="0 0 20 20" width="20" height="20" aria-hidden="true">
+            <path fillRule="evenodd" d="M9.293 2.293a1 1 0 0 1 1.414 0l7 7A1 1 0 0 1 17 11h-1v6a1 1 0 0 1-1 1h-2a1 1 0 0 1-1-1v-3a1 1 0 0 0-1-1H9a1 1 0 0 0-1 1v3a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-6H3a1 1 0 0 1-.707-1.707z" clipRule="evenodd" />
           </svg>
-        </span>
-        <span className="sidebar-nav-title">Recientes</span>
-        <button
-          className="sidebar-nav-add-btn"
-          onClick={(e) => { e.stopPropagation(); setShowCollectionModal(true); }}
-          title="Nueva colección"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" width="14" height="14">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+        </button>
+        <button className="sidebar-nav-icon-btn" title="Notificaciones" onClick={() => setShowNotifications(!showNotifications)}>
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="#999" strokeWidth="1.5" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 13.5h3.86a2.25 2.25 0 0 1 2.012 1.244l.256.512a2.25 2.25 0 0 0 2.013 1.244h3.218a2.25 2.25 0 0 0 2.013-1.244l.256-.512a2.25 2.25 0 0 1 2.013-1.244h3.859m-19.5.338V18a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18v-4.162q0-.338-.1-.661l-2.41-7.839a2.25 2.25 0 0 0-2.15-1.588H6.911a2.25 2.25 0 0 0-2.15 1.588L2.35 13.177a2.3 2.3 0 0 0-.1.661" />
+          </svg>
+        </button>
+        <button className="sidebar-nav-icon-btn" title="Personalizar secciones" onClick={() => setShowSidebarCustomize(!showSidebarCustomize)}>
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="#999" strokeWidth="1.5" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 1 1-3 0m3 0a1.5 1.5 0 1 0-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m-9.75 0h9.75" />
+          </svg>
+        </button>
+        <button className="sidebar-nav-icon-btn sidebar-nav-icon-search" title="Buscar" onClick={() => setShowSearch(true)}>
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="#999" strokeWidth="1.5" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+            <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607" />
           </svg>
         </button>
       </div>
 
-      {collectionsOpen && (
-        <nav className="sidebar-nav">
-          {loading ? (
-          <div className="sidebar-loading">Cargando...</div>
-        ) : collections.length === 0 && sharedNotes.length === 0 ? (
-          <div className="sidebar-empty">Crea tu primera colección</div>
-        ) : (
-          <>
-            {collections.map(col => renderCollection(col, true))}
-            {sharedNotes.map((note) => {
-              const isActive = activeNoteId === note._id;
-              const displayTitle = note.title || 'Sin título';
-              return (
-                <div
-                  key={note._id}
-                  className={`sidebar-note ${isActive ? "active" : ""}`}
-                  onClick={() => {
-                    onSelectNote({
-                      _id: note._id,
-                      title: note.title || 'Sinítulo',
-                      emoji: note.emoji != null ? note.emoji : null,
-                      collectionId: note.collectionId,
-                    });
-                  }}
-                >
-                  {note.emoji ? (
-                    <span className="sidebar-note-icon">{note.emoji}</span>
-                  ) : (
-                    <span className="sidebar-note-icon">
-                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" width="14" height="14">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
-                      </svg>
-                    </span>
-                  )}
-                  <span className="sidebar-note-title">{displayTitle}</span>
-                  <span className="shared-badge">compartido</span>
-                </div>
-              );
-            })}
-          </>
-        )}
-        </nav>
-      )}
-
-      {publicCollections.length > 0 && (
-        <>
-          <div className="sidebar-nav-header" onClick={() => { if (publicasOpen) setExpandedPublicas({}); setPublicasOpen((o) => !o); }}>
-            <span className={`sidebar-nav-chevron ${publicasOpen ? "open" : ""}`}>
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" width="12" height="12">
-                <path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
-              </svg>
-            </span>
-            <span className="sidebar-nav-title">Públicas</span>
+      {showSidebarCustomize && (
+        <div className="sidebar-customize-panel">
+          <div className="sidebar-customize-header">
+            <span className="sidebar-customize-title">Secciones del sidebar</span>
+            <button className="sidebar-customize-done" onClick={() => setShowSidebarCustomize(false)}>Listo</button>
           </div>
-          {publicasOpen && (
-            <nav className="sidebar-nav">
-              {publicCollections.map(col => renderCollection(col, true, expandedPublicas, toggleExpandPublicas))}
-            </nav>
-          )}
-        </>
-      )}
-
-      {privateCollections.length > 0 && (
-        <>
-          <div className="sidebar-nav-header" onClick={() => { if (privadasOpen) setExpandedPrivadas({}); setPrivadasOpen((o) => !o); }}>
-            <span className={`sidebar-nav-chevron ${privadasOpen ? "open" : ""}`}>
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" width="12" height="12">
-                <path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
-              </svg>
-            </span>
-            <span className="sidebar-nav-title">Privadas</span>
-            <button
-              className="sidebar-nav-add-btn"
-              onClick={(e) => { e.stopPropagation(); setShowCollectionModal(true); }}
-              title="Nueva colección"
+          {sidebarSections.map((section, idx) => (
+            <div
+              key={section.id}
+              className="sidebar-customize-item"
+              draggable
+              onDragStart={(e) => { e.dataTransfer.setData('text/plain', idx); e.dataTransfer.effectAllowed = 'move'; }}
+              onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; }}
+              onDrop={(e) => {
+                e.preventDefault();
+                const from = parseInt(e.dataTransfer.getData('text/plain'));
+                if (from === idx) return;
+                const updated = [...sidebarSections];
+                const [moved] = updated.splice(from, 1);
+                updated.splice(idx, 0, moved);
+                setSidebarSections(updated);
+                localStorage.setItem('sidebarSectionOrder', JSON.stringify(updated));
+              }}
             >
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" width="14" height="14">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+              <svg className="sidebar-customize-drag" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" width="14" height="14">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
               </svg>
-            </button>
-          </div>
-          {privadasOpen && (
-            <nav className="sidebar-nav">
-              {privateCollections.map(col => renderCollection(col, true, expandedPrivadas, toggleExpandPrivadas))}
-            </nav>
-          )}
-        </>
+              <button
+                className="sidebar-customize-visibility"
+                onClick={() => {
+                  const updated = sidebarSections.map((s, i) => i === idx ? { ...s, visible: !s.visible } : s);
+                  setSidebarSections(updated);
+                  localStorage.setItem('sidebarSectionOrder', JSON.stringify(updated));
+                }}
+              >
+                {section.visible ? (
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" width="16" height="16">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+                  </svg>
+                ) : (
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" width="16" height="16">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M3.98 8.223A10.477 10.477 0 0 0 1.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.451 10.451 0 0 1 12 4.5c4.756 0 8.773 3.162 10.065 7.498a10.522 10.522 0 0 1-4.293 5.774M6.228 6.228 3 3m3.228 3.228 3.65 3.65m7.894 7.894L21 21m-3.228-3.228-3.65-3.65m0 0a3 3 0 1 0-4.243-4.243m4.242 4.242L9.88 9.88" />
+                  </svg>
+                )}
+              </button>
+              <span className="sidebar-customize-label">{section.label}</span>
+            </div>
+          ))}
+        </div>
       )}
 
-      {(favorites.length > 0 || favoriteCollections.length > 0) && (
-        <>
-          <div className="sidebar-nav-header" onClick={() => setFavoritesOpen((o) => !o)}>
-            <span className={`sidebar-nav-chevron ${favoritesOpen ? "open" : ""}`}>
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" width="12" height="12">
-                <path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
-              </svg>
-            </span>
-            <span className="sidebar-nav-title">Favoritos</span>
-          </div>
-          {favoritesOpen && (
-            <nav className="sidebar-nav">
-              {favoriteCollections.map((col) => (
-                <div key={col._id} className="sidebar-collection">
-                  <div
-                    className="sidebar-collection-header"
-                    onClick={() => setExpandedFavCols((prev) => ({ ...prev, [col._id]: !prev[col._id] }))}
+      {sidebarSections.filter(s => s.visible !== false).map(section => {
+        switch (section.id) {
+          case 'recientes':
+            return (
+              <React.Fragment key="recientes">
+                <div className="sidebar-nav-header" onClick={() => { if (collectionsOpen) setExpanded({}); setCollectionsOpen((o) => !o); }}>
+                  <span className="sidebar-nav-title">Recientes</span>
+                  <span className={`sidebar-nav-chevron ${collectionsOpen ? "open" : ""}`}>
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" width="12" height="12">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
+                    </svg>
+                  </span>
+                  <button
+                    className="sidebar-nav-add-btn"
+                    onClick={(e) => { e.stopPropagation(); setShowCollectionModal(true); }}
+                    title="Nueva colección"
                   >
-                    <span className={`sidebar-chevron ${expandedFavCols[col._id] ? "open" : ""}`}>
-                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" width="12" height="12">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
-                      </svg>
-                    </span>
-                    <span className="sidebar-collection-icon">
-                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" width="16" height="16">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 12.75V12A2.25 2.25 0 0 1 4.5 9.75h15A2.25 2.25 0 0 1 21.75 12v.75m-8.69-6.44-2.12-2.12a1.5 1.5 0 0 0-1.061-.44H4.5A2.25 2.25 0 0 0 2.25 6v12a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9a2.25 2.25 0 0 0-2.25-2.25h-5.379a1.5 1.5 0 0 1-1.06-.44Z" />
-                      </svg>
-                    </span>
-                    <span className="sidebar-collection-name">{col.name}</span>
-                    <button
-                      className="sidebar-collection-star favorited"
-                      onClick={(e) => handleToggleCollectionFavorite(e, col._id)}
-                      title="Quitar de favoritos"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" width="14" height="14">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M11.48 3.499a.562.562 0 0 1 1.04 0l2.125 5.111a.563.563 0 0 0 .475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 0 0-.182.557l1.285 5.385a.562.562 0 0 1-.84.61l-4.725-2.885a.562.562 0 0 0-.586 0L6.982 20.54a.562.562 0 0 1-.84-.61l1.285-5.386a.562.562 0 0 0-.182-.557l-4.204-3.602a.562.562 0 0 1 .321-.988l5.518-.442a.563.563 0 0 0 .475-.345L11.48 3.5Z" />
-                      </svg>
-                    </button>
-                    <button
-                      className="sidebar-collection-delete"
-                      onClick={(e) => handleDeleteCollection(e, col._id)}
-                      title="Eliminar colección"
-                    >
-                      ×
-                    </button>
-                  </div>
-                  {expandedFavCols[col._id] && (
-                    <div className="sidebar-notes">
-                      {col.notes.map((note) => {
-                        const isActive = activeNoteId === note._id;
-                        const displayTitle = (isActive ? activeNote.title : note.title) || 'Sin título';
-                        const noteEmoji = isActive ? activeNote.emoji : note.emoji;
-                        return (
-                          <div
-                            key={note._id}
-                            className={`sidebar-note ${isActive ? "active" : ""}`}
-                            onClick={() => {
-                              onSelectNote({
-                                _id: note._id,
-                                title: note.title || 'Sin título',
-                                emoji: note.emoji != null ? note.emoji : null,
-                                collectionId: col._id,
-                                updatedAt: note.updatedAt,
-                              });
-                            }}
-                          >
-                            {noteEmoji ? (
-                              <span className="sidebar-note-icon">{noteEmoji}</span>
-                            ) : noteEmoji === null ? (
-                              <span className="sidebar-note-icon">
-                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" width="14" height="14">
-                                  <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
-                                </svg>
-                              </span>
-                            ) : null}
-                            <span className="sidebar-note-title">{displayTitle}</span>
-                            <button
-                              className={`sidebar-note-star ${note.metadata?.isFavorite ? "favorited" : ""}`}
-                              onClick={(e) => handleToggleFavorite(e, note._id)}
-                              title={note.metadata?.isFavorite ? "Quitar de favoritos" : "Añadir a favoritos"}
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" width="15" height="15">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                    </svg>
+                  </button>
+                </div>
+                {collectionsOpen && (
+                  <nav className="sidebar-nav">
+                    {loading ? (
+                      <div className="sidebar-loading">Cargando...</div>
+                    ) : collections.length === 0 && sharedNotes.length === 0 ? (
+                      <div className="sidebar-empty">Crea tu primera colección</div>
+                    ) : (
+                      <>
+                        {collections.map(col => renderCollection(col, true))}
+                        {sharedNotes.map((note) => {
+                          const isActive = activeNoteId === note._id;
+                          const displayTitle = note.title || 'Sin título';
+                          return (
+                            <div
+                              key={note._id}
+                              className={`sidebar-note ${isActive ? "active" : ""}`}
+                              onClick={() => {
+                                onSelectNote({
+                                  _id: note._id,
+                                  title: note.title || 'Sin título',
+                                  emoji: note.emoji != null ? note.emoji : null,
+                                  collectionId: note.collectionId,
+                                });
+                              }}
                             >
-                              <svg xmlns="http://www.w3.org/2000/svg" fill={note.metadata?.isFavorite ? "currentColor" : "none"} viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" width="14" height="14">
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M11.48 3.499a.562.562 0 0 1 1.04 0l2.125 5.111a.563.563 0 0 0 .475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 0 0-.182.557l1.285 5.385a.562.562 0 0 1-.84.61l-4.725-2.885a.562.562 0 0 0-.586 0L6.982 20.54a.562.562 0 0 1-.84-.61l1.285-5.386a.562.562 0 0 0-.182-.557l-4.204-3.602a.562.562 0 0 1 .321-.988l5.518-.442a.563.563 0 0 0 .475-.345L11.48 3.5Z" />
+                              {note.emoji ? (
+                                <span className="sidebar-note-icon">{note.emoji}</span>
+                              ) : (
+                                <span className="sidebar-note-icon">
+                                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" width="15" height="15">
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
+                                  </svg>
+                                </span>
+                              )}
+                              <span className="sidebar-note-title">{displayTitle}</span>
+                              <span className="shared-badge">compartido</span>
+                            </div>
+                          );
+                        })}
+                      </>
+                    )}
+                  </nav>
+                )}
+              </React.Fragment>
+            );
+          case 'publicas':
+            if (publicCollections.length === 0) return null;
+            return (
+              <React.Fragment key="publicas">
+                <div className="sidebar-nav-header" onClick={() => { if (publicasOpen) setExpandedPublicas({}); setPublicasOpen((o) => !o); }}>
+                  <span className="sidebar-nav-title">Públicas</span>
+                  <span className={`sidebar-nav-chevron ${publicasOpen ? "open" : ""}`}>
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" width="12" height="12">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
+                    </svg>
+                  </span>
+                </div>
+                {publicasOpen && (
+                  <nav className="sidebar-nav">
+                    {publicCollections.map(col => renderCollection(col, true, expandedPublicas, toggleExpandPublicas))}
+                  </nav>
+                )}
+              </React.Fragment>
+            );
+          case 'privadas':
+            if (privateCollections.length === 0) return null;
+            return (
+              <React.Fragment key="privadas">
+                <div className="sidebar-nav-header" onClick={() => { if (privadasOpen) setExpandedPrivadas({}); setPrivadasOpen((o) => !o); }}>
+                  <span className="sidebar-nav-title">Privadas</span>
+                  <span className={`sidebar-nav-chevron ${privadasOpen ? "open" : ""}`}>
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" width="12" height="12">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
+                    </svg>
+                  </span>
+                  <button
+                    className="sidebar-nav-add-btn"
+                    onClick={(e) => { e.stopPropagation(); setShowCollectionModal(true); }}
+                    title="Nueva colección"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" width="15" height="15">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                    </svg>
+                  </button>
+                </div>
+                {privadasOpen && (
+                  <nav className="sidebar-nav">
+                    {privateCollections.map(col => renderCollection(col, true, expandedPrivadas, toggleExpandPrivadas))}
+                  </nav>
+                )}
+              </React.Fragment>
+            );
+          case 'favoritos':
+            if (favorites.length === 0 && favoriteCollections.length === 0) return null;
+            return (
+              <React.Fragment key="favoritos">
+                <div className="sidebar-nav-header" onClick={() => setFavoritesOpen((o) => !o)}>
+                  <span className="sidebar-nav-title">Favoritos</span>
+                  <span className={`sidebar-nav-chevron ${favoritesOpen ? "open" : ""}`}>
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" width="12" height="12">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
+                    </svg>
+                  </span>
+                </div>
+                {favoritesOpen && (
+                  <nav className="sidebar-nav">
+                    {favoriteCollections.map((col) => (
+                      <div key={col._id} className="sidebar-collection">
+                        <div
+                          className="sidebar-collection-header"
+                          onClick={() => setExpandedFavCols((prev) => ({ ...prev, [col._id]: !prev[col._id] }))}
+                        >
+                          <span className="sidebar-collection-icon-wrapper">
+                            <span className={`sidebar-collection-chevron ${expandedFavCols[col._id] ? "open" : ""}`}>
+                              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" width="12" height="12">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
                               </svg>
-                            </button>
-                            <button
-                              className="sidebar-note-delete"
-                              onClick={(e) => handleDeleteNote(e, note._id, col._id)}
-                              title="Eliminar nota"
-                            >
-                              ×
-                            </button>
-                          </div>
-                        );
-                      })}
-                      <button
-                        className="sidebar-add-note-btn"
-                        onClick={() => handleCreateNote(col._id)}
-                      >
-                        <span className="sidebar-btn-icon-small">+</span>
-                        Nueva nota
-                      </button>
-                    </div>
-                  )}
-                </div>
-              ))}
-              {favorites.map((note) => {
-                const isActive = activeNoteId === note._id;
-                const displayTitle = (isActive ? activeNote.title : note.title) || 'Sin título';
-                const noteEmoji = isActive ? activeNote.emoji : note.emoji;
-                return (
-                  <div
-                    key={note._id}
-                    className={`sidebar-note ${isActive ? "active" : ""}`}
-                    onClick={() => {
-                      onSelectNote({
-                        _id: note._id,
-                        title: note.title || 'Sin título',
-                        emoji: note.emoji != null ? note.emoji : null,
-                        collectionId: note.collectionId,
-                        updatedAt: note.updatedAt,
-                      });
-                    }}
-                  >
-                    {noteEmoji ? (
-                      <span className="sidebar-note-icon">{noteEmoji}</span>
-                    ) : noteEmoji === null ? (
-                      <span className="sidebar-note-icon">
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" width="14" height="14">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
-                        </svg>
-                      </span>
-                    ) : null}
-                    <span className="sidebar-note-title">{displayTitle}</span>
-                    <button
-                      className={`sidebar-note-star ${note.metadata?.isFavorite ? "favorited" : ""}`}
-                      onClick={(e) => handleToggleFavorite(e, note._id)}
-                      title={note.metadata?.isFavorite ? "Quitar de favoritos" : "Añadir a favoritos"}
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" fill={note.metadata?.isFavorite ? "currentColor" : "none"} viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" width="14" height="14">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M11.48 3.499a.562.562 0 0 1 1.04 0l2.125 5.111a.563.563 0 0 0 .475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 0 0-.182.557l1.285 5.385a.562.562 0 0 1-.84.61l-4.725-2.885a.562.562 0 0 0-.586 0L6.982 20.54a.562.562 0 0 1-.84-.61l1.285-5.386a.562.562 0 0 0-.182-.557l-4.204-3.602a.562.562 0 0 1 .321-.988l5.518-.442a.563.563 0 0 0 .475-.345L11.48 3.5Z" />
-                      </svg>
-                    </button>
-                    <button
-                      className="sidebar-note-delete"
-                      onClick={(e) => handleDeleteNote(e, note._id, note.collectionId)}
-                      title="Eliminar nota"
-                    >
-                      ×
-                    </button>
-                  </div>
-                );
-              })}
-            </nav>
-          )}
-        </>
-      )}
-
-      {sharedCollections.length > 0 && (
-        <>
-          <div className="sidebar-nav-header" onClick={() => { if (sharedOpen) setExpanded({}); setSharedOpen((o) => !o); }}>
-            <span className={`sidebar-nav-chevron ${sharedOpen ? "open" : ""}`}>
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" width="12" height="12">
-                <path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
-              </svg>
-            </span>
-            <span className="sidebar-nav-title">Compartidas</span>
-          </div>
-          {sharedOpen && (
-            <nav className="sidebar-nav">
-              {sharedCollections.map((col) => (
-                <div key={col._id} className="sidebar-collection">
-                  <div
-                    className="sidebar-collection-header"
-                    onClick={() => toggleExpandShared(col._id)}
-                  >
-                    <span className={`sidebar-chevron ${expandedShared[col._id] ? "open" : ""}`}>
-                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" width="12" height="12">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
-                      </svg>
-                    </span>
-                    <span className="sidebar-collection-icon">
-                      {col.emoji ? (
-                        <span style={{ fontSize: 16 }}>{col.emoji}</span>
-                      ) : (
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" width="16" height="16">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M18 7.5v3m0 0v3m0-3h3m-3 0h-3m-2.25-4.125a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0ZM3 19.235v-.11a6.375 6.375 0 0 1 12.75 0v.109A12.318 12.318 0 0 1 9.374 21c-2.331 0-4.512-.645-6.374-1.766Z" />
-                        </svg>
-                      )}
-                    </span>
-                    <span
-                      className="sidebar-collection-name"
-                      onClick={() => navigate(`/collection/${col._id}`)}
-                      title={`Abrir colección "${col.name}"`}
-                      style={{ cursor: "pointer", flex: 1 }}
-                    >
-                      {col.name}
-                    </span>
-                    <span className="shared-badge" title={`Compartido por ${col.user?.name || 'usuario'}`}>compartido</span>
-                  </div>
-      {expandedShared[col._id] && (
-        <div className="sidebar-notes">
-                      {(col.notes || []).map((note) => {
-                        const isActive = activeNoteId === note._id;
-                        const rawTitle = isActive ? activeNote.title : note.title;
-                        const displayTitle = rawTitle || 'Sin título';
-                        const noteEmoji = isActive ? activeNote.emoji : note.emoji;
-                        return (
-                          <div
-                            key={note._id}
-                            className={`sidebar-note ${isActive ? "active" : ""}`}
-                            onClick={() => {
-                              onSelectNote({
-                                _id: note._id,
-                                title: note.title || 'Sin título',
-                                emoji: note.emoji != null ? note.emoji : null,
-                                updatedAt: note.updatedAt,
-                                collectionId: col._id,
-                              });
-                            }}
+                            </span>
+                            <span className="sidebar-collection-icon">
+                              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" width="15" height="15">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 12.75V12A2.25 2.25 0 0 1 4.5 9.75h15A2.25 2.25 0 0 1 21.75 12v.75m-8.69-6.44-2.12-2.12a1.5 1.5 0 0 0-1.061-.44H4.5A2.25 2.25 0 0 0 2.25 6v12a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9a2.25 2.25 0 0 0-2.25-2.25h-5.379a1.5 1.5 0 0 1-1.06-.44Z" />
+                              </svg>
+                            </span>
+                          </span>
+                          <span className="sidebar-collection-name">{col.name}</span>
+                          <button
+                            className="sidebar-collection-star favorited"
+                            onClick={(e) => handleToggleCollectionFavorite(e, col._id)}
+                            title="Quitar de favoritos"
                           >
-                            {noteEmoji ? (
-                              <span className="sidebar-note-icon">{noteEmoji}</span>
-                            ) : noteEmoji === null ? (
-                              <span className="sidebar-note-icon">
-                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" width="14" height="14">
-                                  <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
-                                </svg>
-                              </span>
-                            ) : null}
-                            <span className="sidebar-note-title">{displayTitle}</span>
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" width="15" height="15">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M11.48 3.499a.562.562 0 0 1 1.04 0l2.125 5.111a.563.563 0 0 0 .475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 0 0-.182.557l1.285 5.385a.562.562 0 0 1-.84.61l-4.725-2.885a.562.562 0 0 0-.586 0L6.982 20.54a.562.562 0 0 1-.84-.61l1.285-5.386a.562.562 0 0 0-.182-.557l-4.204-3.602a.562.562 0 0 1 .321-.988l5.518-.442a.563.563 0 0 0 .475-.345L11.48 3.5Z" />
+                            </svg>
+                          </button>
+                          <button
+                            className="sidebar-collection-delete"
+                            onClick={(e) => handleDeleteCollection(e, col._id, col.name)}
+                            title="Eliminar colección"
+                          >
+                            ×
+                          </button>
+                        </div>
+                        {expandedFavCols[col._id] && (
+                          <div className="sidebar-notes">
+                            {col.notes.map((note) => {
+                              const isActive = activeNoteId === note._id;
+                              const displayTitle = (isActive ? activeNote.title : note.title) || 'Sin título';
+                              const noteEmoji = isActive ? activeNote.emoji : note.emoji;
+                              return (
+                                <div
+                                  key={note._id}
+                                  className={`sidebar-note ${isActive ? "active" : ""}`}
+                                  onClick={() => {
+                                    onSelectNote({
+                                      _id: note._id,
+                                      title: note.title || 'Sin título',
+                                      emoji: note.emoji != null ? note.emoji : null,
+                                      collectionId: col._id,
+                                      updatedAt: note.updatedAt,
+                                    });
+                                  }}
+                                >
+                                  {noteEmoji ? (
+                                    <span className="sidebar-note-icon">{noteEmoji}</span>
+                                  ) : noteEmoji === null ? (
+                                    <span className="sidebar-note-icon">
+                                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" width="15" height="15">
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
+                                      </svg>
+                                    </span>
+                                  ) : null}
+                                  <span className="sidebar-note-title">{displayTitle}</span>
+                                  <button
+                                    className={`sidebar-note-star ${note.metadata?.isFavorite ? "favorited" : ""}`}
+                                    onClick={(e) => handleToggleFavorite(e, note._id)}
+                                    title={note.metadata?.isFavorite ? "Quitar de favoritos" : "Añadir a favoritos"}
+                                  >
+                                    <svg xmlns="http://www.w3.org/2000/svg" fill={note.metadata?.isFavorite ? "#f59e0b" : "none"} viewBox="0 0 24 24" strokeWidth="1.5" stroke={note.metadata?.isFavorite ? "#f59e0b" : "currentColor"} width="15" height="15">
+                                      <path strokeLinecap="round" strokeLinejoin="round" d="M11.48 3.499a.562.562 0 0 1 1.04 0l2.125 5.111a.563.563 0 0 0 .475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 0 0-.182.557l1.285 5.385a.562.562 0 0 1-.84.61l-4.725-2.885a.562.562 0 0 0-.586 0L6.982 20.54a.562.562 0 0 1-.84-.61l1.285-5.386a.562.562 0 0 0-.182-.557l-4.204-3.602a.562.562 0 0 1 .321-.988l5.518-.442a.563.563 0 0 0 .475-.345L11.48 3.5Z" />
+                                    </svg>
+                                  </button>
+                                  <button
+                                    className="sidebar-note-delete"
+                                    onClick={(e) => handleDeleteNote(e, note._id, col._id, note.title)}
+                                    title="Eliminar nota"
+                                  >
+                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" width="15" height="15">
+                                      <path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21q.512.078 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48 48 0 0 0-3.478-.397m-12 .562q.51-.089 1.022-.165m0 0a48 48 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a52 52 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a49 49 0 0 0-7.5 0" />
+                                    </svg>
+                                  </button>
+                                </div>
+                              );
+                            })}
+                            <button
+                              className="sidebar-add-note-btn"
+                              onClick={() => handleCreateNote(col._id)}
+                            >
+                              <span className="sidebar-btn-icon-small">+</span>
+                              Nueva nota
+                            </button>
                           </div>
-                        );
-                      })}
-                    </div>
-                  )}
+                        )}
+                      </div>
+                    ))}
+                    {favorites.map((note) => {
+                      const isActive = activeNoteId === note._id;
+                      const displayTitle = (isActive ? activeNote.title : note.title) || 'Sin título';
+                      const noteEmoji = isActive ? activeNote.emoji : note.emoji;
+                      return (
+                        <div
+                          key={note._id}
+                          className={`sidebar-note ${isActive ? "active" : ""}`}
+                          onClick={() => {
+                            onSelectNote({
+                              _id: note._id,
+                              title: note.title || 'Sin título',
+                              emoji: note.emoji != null ? note.emoji : null,
+                              collectionId: note.collectionId,
+                              updatedAt: note.updatedAt,
+                            });
+                          }}
+                        >
+                          {noteEmoji ? (
+                            <span className="sidebar-note-icon">{noteEmoji}</span>
+                          ) : noteEmoji === null ? (
+                            <span className="sidebar-note-icon">
+                              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" width="15" height="15">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
+                              </svg>
+                            </span>
+                          ) : null}
+                          <span className="sidebar-note-title">{displayTitle}</span>
+                          <button
+                            className={`sidebar-note-star ${note.metadata?.isFavorite ? "favorited" : ""}`}
+                            onClick={(e) => handleToggleFavorite(e, note._id)}
+                            title={note.metadata?.isFavorite ? "Quitar de favoritos" : "Añadir a favoritos"}
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" fill={note.metadata?.isFavorite ? "currentColor" : "none"} viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" width="15" height="15">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M11.48 3.499a.562.562 0 0 1 1.04 0l2.125 5.111a.563.563 0 0 0 .475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 0 0-.182.557l1.285 5.385a.562.562 0 0 1-.84.61l-4.725-2.885a.562.562 0 0 0-.586 0L6.982 20.54a.562.562 0 0 1-.84-.61l1.285-5.386a.562.562 0 0 0-.182-.557l-4.204-3.602a.562.562 0 0 1 .321-.988l5.518-.442a.563.563 0 0 0 .475-.345L11.48 3.5Z" />
+                            </svg>
+                          </button>
+                          <button
+                            className="sidebar-note-delete"
+                            onClick={(e) => handleDeleteNote(e, note._id, note.collectionId, note.title)}
+                            title="Eliminar nota"
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" width="15" height="15">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21q.512.078 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48 48 0 0 0-3.478-.397m-12 .562q.51-.089 1.022-.165m0 0a48 48 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a52 52 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a49 49 0 0 0-7.5 0" />
+                            </svg>
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </nav>
+                )}
+              </React.Fragment>
+            );
+          case 'compartidas':
+            if (sharedCollections.length === 0) return null;
+            return (
+              <React.Fragment key="compartidas">
+                <div className="sidebar-nav-header" onClick={() => { if (sharedOpen) setExpanded({}); setSharedOpen((o) => !o); }}>
+                  <span className="sidebar-nav-title">Compartidas</span>
+                  <span className={`sidebar-nav-chevron ${sharedOpen ? "open" : ""}`}>
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" width="12" height="12">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
+                    </svg>
+                  </span>
                 </div>
-              ))}
-            </nav>
-          )}
-        </>
-      )}
+                {sharedOpen && (
+                  <nav className="sidebar-nav">
+                    {sharedCollections.map((col) => (
+                      <div key={col._id} className="sidebar-collection">
+                        <div
+                          className="sidebar-collection-header"
+                          onClick={() => toggleExpandShared(col._id)}
+                        >
+                          <span className="sidebar-collection-icon-wrapper">
+                            <span className={`sidebar-collection-chevron ${expandedShared[col._id] ? "open" : ""}`}>
+                              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" width="12" height="12">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
+                              </svg>
+                            </span>
+                            <span className="sidebar-collection-icon">
+                              {col.emoji ? (
+                                <span style={{ fontSize: 16 }}>{col.emoji}</span>
+                              ) : (
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" width="15" height="15">
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M18 7.5v3m0 0v3m0-3h3m-3 0h-3m-2.25-4.125a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0ZM3 19.235v-.11a6.375 6.375 0 0 1 12.75 0v.109A12.318 12.318 0 0 1 9.374 21c-2.331 0-4.512-.645-6.374-1.766Z" />
+                                </svg>
+                              )}
+                            </span>
+                          </span>
+                          <span
+                            className="sidebar-collection-name"
+                            onClick={() => navigate(`/collection/${col._id}`)}
+                            title={`Abrir colección "${col.name}"`}
+                            style={{ cursor: "pointer", flex: 1 }}
+                          >
+                            {col.name}
+                          </span>
+                          <span className="shared-badge" title={`Compartido por ${col.user?.name || 'usuario'}`}>compartido</span>
+                        </div>
+                        {expandedShared[col._id] && (
+                          <div className="sidebar-notes">
+                            {(col.notes || []).map((note) => {
+                              const isActive = activeNoteId === note._id;
+                              const rawTitle = isActive ? activeNote.title : note.title;
+                              const displayTitle = rawTitle || 'Sin título';
+                              const noteEmoji = isActive ? activeNote.emoji : note.emoji;
+                              return (
+                                <div
+                                  key={note._id}
+                                  className={`sidebar-note ${isActive ? "active" : ""}`}
+                                  onClick={() => {
+                                    onSelectNote({
+                                      _id: note._id,
+                                      title: note.title || 'Sin título',
+                                      emoji: note.emoji != null ? note.emoji : null,
+                                      updatedAt: note.updatedAt,
+                                      collectionId: col._id,
+                                    });
+                                  }}
+                                >
+                                  {noteEmoji ? (
+                                    <span className="sidebar-note-icon">{noteEmoji}</span>
+                                  ) : noteEmoji === null ? (
+                                    <span className="sidebar-note-icon">
+                                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" width="15" height="15">
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
+                                      </svg>
+                                    </span>
+                                  ) : null}
+                                  <span className="sidebar-note-title">{displayTitle}</span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </nav>
+                )}
+              </React.Fragment>
+            );
+          default:
+            return null;
+        }
+      })}
 
       <div className="sidebar-trash-section">
         <button
@@ -1025,23 +1055,14 @@ const Sidebar = ({ activeNote, onSelectNote, onAddCollection, favoriteRefreshKey
           onClick={onShowTrash}
           title="Papelera"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" width="16" height="16">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" width="15" height="15">
             <path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
           </svg>
           <span>Papelera</span>
           {trashCount > 0 && <span className="trash-count">{trashCount}</span>}
         </button>
         <ThemeToggle />
-        <button
-          className="sidebar-logout-btn"
-          onClick={() => dispatch(logout())}
-          title="Cerrar sesión"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" width="16" height="16">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15m3 0 3-3m0 0-3-3m3 3H9" />
-          </svg>
-          <span>Salir</span>
-        </button>
+        <NotificationBell onRefresh={refreshCollections} isOpen={showNotifications} onToggle={setShowNotifications} />
       </div>
 
       {showCollectionModal && (
@@ -1070,6 +1091,24 @@ const Sidebar = ({ activeNote, onSelectNote, onAddCollection, favoriteRefreshKey
           />
         </ModalPortal>
       )}
+
+      {confirmModal && (
+        <ConfirmModal
+          title={confirmModal.title}
+          message={confirmModal.message}
+          confirmLabel={confirmModal.confirmLabel}
+          danger={confirmModal.danger}
+          onConfirm={confirmModal.onConfirm}
+          onCancel={() => setConfirmModal(null)}
+        />
+      )}
+
+      <SearchModal
+        isOpen={showSearch}
+        onClose={() => setShowSearch(false)}
+        onSelectNote={(note) => onSelectNote({ _id: note._id, title: note.title || "Sin título", emoji: note.emoji || null, collectionId: note.collectionId })}
+        onSelectCollection={(col) => navigate(`/collection/${col._id}`)}
+      />
 
     </aside>
   );

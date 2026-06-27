@@ -33,6 +33,10 @@ const collectionSchema = new mongoose.Schema({
     default: false,
     index: true
   },
+  hiddenFromRecents: {
+    type: Boolean,
+    default: false
+  },
   deletedAt: {
     type: Date,
     default: null

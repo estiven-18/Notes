@@ -347,6 +347,16 @@ export const toggleCollectionFavorite = async (collectionId) => {
   return data.data;
 };
 
+export const toggleHideFromRecents = async (collectionId) => {
+  const response = await fetch(`${API_URL}/collections/${collectionId}/hide-recents`, {
+    method: "POST",
+    headers: getAuthHeaders(),
+  });
+  const data = await response.json();
+  if (!data.success) throw new Error(data.message);
+  return data.data;
+};
+
 export const shareNote = async (noteId, email, role = 'editor') => {
   const response = await fetch(`${API_URL}/document/${noteId}/share`, {
     method: "POST",

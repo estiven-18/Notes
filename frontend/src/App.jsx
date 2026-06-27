@@ -31,6 +31,7 @@ function AppLayout() {
       return null;
     }
   });
+  const displayedActiveNote = isCollectionView ? null : activeNote;
   const [showTrash, setShowTrash] = useState(false);
   const [favoriteRefreshKey, setFavoriteRefreshKey] = useState(0);
   const [trashRefreshKey, setTrashRefreshKey] = useState(0);
@@ -40,26 +41,33 @@ function AppLayout() {
   const [noteRefreshKey, setNoteRefreshKey] = useState(0);
 
   useEffect(() => {
+    if (isCollectionView) {
+      localStorage.removeItem('activeNote');
+    }
+  }, [isCollectionView]);
+
+  useEffect(() => {
     if (isLibrary) {
       document.title = 'Library | Notes';
       return;
     }
-    if (activeNote) {
-      localStorage.setItem('activeNote', JSON.stringify(activeNote));
-      const emoji = activeNote.emoji && activeNote.emoji !== null ? activeNote.emoji + ' ' : '';
-      const title = activeNote.title || 'Sin título';
+    if (displayedActiveNote) {
+      localStorage.setItem('activeNote', JSON.stringify(displayedActiveNote));
+      const emoji = displayedActiveNote.emoji && displayedActiveNote.emoji !== null ? displayedActiveNote.emoji + ' ' : '';
+      const title = displayedActiveNote.title || 'Sin título';
       document.title = `${emoji}${title} | Notes`;
     } else {
       localStorage.removeItem('activeNote');
       document.title = 'Notes';
     }
-  }, [activeNote, isLibrary]);
+  }, [displayedActiveNote, isLibrary]);
 
   useEffect(() => {
-    if (!isLibrary && activeNote?._id && !activeNote.isDeleted) {
-      getNoteById(activeNote._id).then((note) => {
+    if (!isLibrary && displayedActiveNote?._id && !displayedActiveNote.isDeleted) {
+      getNoteById(displayedActiveNote._id).then((note) => {
         if (note.isDeleted) {
-          setShowTrash(true);
+          setActiveNote(null);
+          localStorage.removeItem('activeNote');
           return;
         }
         setActiveNote((prev) =>
@@ -77,7 +85,7 @@ function AppLayout() {
         localStorage.removeItem('activeNote');
       });
     }
-  }, [activeNote, isLibrary]);
+  }, [displayedActiveNote, isLibrary]);
 
   const handleSelectNote = useCallback((note) => {
     if (note?.isDeleted) {
@@ -136,7 +144,7 @@ function AppLayout() {
   return (
     <div className={`app-layout${sidebarOpen ? '' : ' sidebar-collapsed'}`}>
       <Sidebar
-        activeNote={activeNote}
+        activeNote={displayedActiveNote}
         onSelectNote={handleSelectNote}
         favoriteRefreshKey={favoriteRefreshKey}
         sharedRefreshKey={sharedRefreshKey}
@@ -154,8 +162,8 @@ function AppLayout() {
           onClick={toggleSidebar}
           title="Mostrar sidebar"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" width="20" height="20">
-            <path strokeLinecap="round" strokeLinejoin="round" d="8.25 4.5l7.5 7.5-7.5 7.5" />
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="#000" strokeWidth="1.5" viewBox="0 0 20 20" width="18" height="18" aria-hidden="true">
+            <path strokeLinecap="round" d="M3 5.5h14M3 10h14M3 14.5h14" />
           </svg>
         </button>
       )}
@@ -178,7 +186,7 @@ function AppLayout() {
       ) : (
         <>
           <NotionEditor
-            noteId={activeNote?._id}
+            noteId={displayedActiveNote?._id}
             onTitleChange={handleTitleChange}
             onEmojiChange={handleEmojiChange}
             onFavoriteToggle={handleFavoriteToggle}

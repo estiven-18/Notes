@@ -2,11 +2,17 @@ import { useState, useEffect } from "react";
 import { getNotifications, acceptInvitation, rejectInvitation, markNotificationRead, markAllNotificationsRead } from "../services/api";
 import ModalPortal from "./ModalPortal";
 
-const NotificationBell = ({ onRefresh }) => {
+const NotificationBell = ({ onRefresh, isOpen, onToggle }) => {
   const [open, setOpen] = useState(false);
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(true);
+
+  const show = isOpen !== undefined ? isOpen : open;
+  const setShow = (val) => {
+    if (onToggle) onToggle(val);
+    else setOpen(val);
+  };
 
   const load = async () => {
     try {
@@ -22,15 +28,25 @@ const NotificationBell = ({ onRefresh }) => {
   };
 
   useEffect(() => {
-    load();
-    const interval = setInterval(load, 10000);
-    return () => clearInterval(interval);
+    const initialLoad = setTimeout(() => {
+      void load();
+    }, 0);
+    const interval = setInterval(() => {
+      void load();
+    }, 10000);
+    return () => {
+      clearTimeout(initialLoad);
+      clearInterval(interval);
+    };
   }, []);
 
   useEffect(() => {
-    if (!open) return;
-    load();
-  }, [open]);
+    if (!show) return;
+    const refreshTimer = setTimeout(() => {
+      void load();
+    }, 0);
+    return () => clearTimeout(refreshTimer);
+  }, [show]);
 
   const handleAccept = async (id) => {
     try {
@@ -77,22 +93,24 @@ const NotificationBell = ({ onRefresh }) => {
 
   return (
     <>
-      <div className="notification-bell-wrapper">
-        <button
-          className="notification-bell"
-          onClick={() => setOpen(true)}
-          title="Notificaciones"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" width="18" height="18">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 0 0 5.454-1.31A8.967 8.967 0 0 1 18 9.75V9A6 6 0 0 0 6 9v.75a8.967 8.967 0 0 1-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 0 1-5.714 0m5.714 0a3 3 0 1 1-5.714 0" />
-          </svg>
-          {unreadCount > 0 && <span className="notification-badge">{unreadCount}</span>}
-        </button>
-      </div>
+      {!onToggle && (
+        <div className="notification-bell-wrapper">
+          <button
+            className="notification-bell"
+            onClick={() => setShow(true)}
+            title="Notificaciones"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" width="18" height="18">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 0 0 5.454-1.31A8.967 8.967 0 0 1 18 9.75V9A6 6 0 0 0 6 9v.75a8.967 8.967 0 0 1-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 0 1-5.714 0m5.714 0a3 3 0 1 1-5.714 0" />
+            </svg>
+            {unreadCount > 0 && <span className="notification-badge">{unreadCount}</span>}
+          </button>
+        </div>
+      )}
 
-      {open && (
+      {show && (
         <ModalPortal>
-          <div className="modal-overlay" onClick={() => setOpen(false)}>
+          <div className="confirm-overlay" onClick={() => setShow(false)}>
             <div className="modal-content notification-modal" onClick={(e) => e.stopPropagation()}>
               <div className="modal-header">
                 <h3 className="modal-title">Notificaciones</h3>
@@ -101,7 +119,7 @@ const NotificationBell = ({ onRefresh }) => {
                     Marcar todas leídas
                   </button>
                 )}
-                <button className="modal-close" onClick={() => setOpen(false)}>×</button>
+                <button className="modal-close" onClick={() => setShow(false)}>×</button>
               </div>
               <div className="notification-modal-body">
                 {loading ? (

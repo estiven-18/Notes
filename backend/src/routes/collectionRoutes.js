@@ -10,6 +10,7 @@ import {
   getNotesByCollection,
   createNote,
   toggleCollectionFavorite,
+  toggleHideFromRecents,
   getFavoriteCollections,
   shareCollection,
   removeShare,
@@ -38,6 +39,7 @@ router.post('/:id/permanent', permanentDeleteCollection);
 router.get('/:id/notes', getNotesByCollection);
 router.post('/:id/notes', createNote);
 router.post('/:id/favorite', toggleCollectionFavorite);
+router.post('/:id/hide-recents', toggleHideFromRecents);
 router.post('/:id/share', shareCollection);
 router.put('/:id/share/:userId', changeShareRole);
 router.post('/:id/unshare', removeShare);
