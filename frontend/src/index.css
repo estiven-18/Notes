@@ -470,6 +470,7 @@ body {
   padding: 3px 8px;
   margin: auto 8px 0;
   border-radius: 8px;
+  height: 34px;
   cursor: pointer;
   font-size: 14px;
   color: var(--color-ink-muted);
@@ -533,11 +534,13 @@ body {
 
 .sidebar-collection-header:hover {
   background: var(--color-gray-100);
+  height: 34px;
 }
 
 .sidebar-collection-header.active {
   background: var(--color-canvas-soft);
   font-weight: 500;
+  height: 34px;
   color: var(--color-ink);
 }
 
