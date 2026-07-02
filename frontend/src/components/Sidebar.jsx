@@ -460,11 +460,14 @@ const Sidebar = ({ activeNote, onSelectNote, onAddCollection, favoriteRefreshKey
       onConfirm: async () => {
         setConfirmModal(null);
         setCollections((prev) => prev.filter((c) => c._id !== colId));
+        setFavoriteCollections((prev) => prev.filter((c) => c._id !== colId));
         try {
            await deleteCollection(colId);
           refreshCollections();
+          refreshFavorites();
         } catch {
           refreshCollections();
+          refreshFavorites();
         }
       },
     });
