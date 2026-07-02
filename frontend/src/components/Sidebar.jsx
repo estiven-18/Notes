@@ -355,6 +355,8 @@ const Sidebar = ({ activeNote, onSelectNote, onAddCollection, favoriteRefreshKey
       danger: true,
       onConfirm: async () => {
         setConfirmModal(null);
+        const wasActive = noteId === activeNoteId;
+        const viewingThisCollection = activeCollectionId === colId;
         setCollections((prev) =>
           prev.map((c) =>
             c._id === colId
@@ -363,6 +365,24 @@ const Sidebar = ({ activeNote, onSelectNote, onAddCollection, favoriteRefreshKey
           )
         );
         setFavorites((prev) => prev.filter((n) => n._id !== noteId));
+        if (wasActive) {
+          let nextNote = null;
+          for (const c of collections) {
+            const n = (c.notes || []).find((x) => x._id !== noteId);
+            if (n) { nextNote = n; break; }
+          }
+          if (nextNote) {
+            navigate(`/note/${nextNote._id}`);
+          } else {
+            navigate('/library');
+          }
+        } else if (viewingThisCollection) {
+          const col = collections.find((c) => c._id === colId);
+          const remaining = (col?.notes || []).filter((n) => n._id !== noteId);
+          if (remaining.length === 0) {
+            navigate('/library');
+          }
+        }
         try {
            await deleteNote(noteId);
           refreshFavorites();
@@ -459,8 +479,22 @@ const Sidebar = ({ activeNote, onSelectNote, onAddCollection, favoriteRefreshKey
       danger: true,
       onConfirm: async () => {
         setConfirmModal(null);
+        const wasActive = colId === activeCollectionId;
         setCollections((prev) => prev.filter((c) => c._id !== colId));
         setFavoriteCollections((prev) => prev.filter((c) => c._id !== colId));
+        if (wasActive) {
+          let nextNote = null;
+          for (const c of collections) {
+            if (c._id === colId) continue;
+            const n = (c.notes || [])[0];
+            if (n) { nextNote = n; break; }
+          }
+          if (nextNote) {
+            navigate(`/note/${nextNote._id}`);
+          } else {
+            navigate('/library');
+          }
+        }
         try {
            await deleteCollection(colId);
           refreshCollections();
