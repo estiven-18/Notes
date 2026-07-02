@@ -28,7 +28,7 @@ import NotificationBell from "./NotificationBell";
 import ModalPortal from "./ModalPortal";
 import ConfirmModal from "./ConfirmModal";
 
-const Sidebar = ({ activeNote, onSelectNote, onAddCollection, favoriteRefreshKey, sharedRefreshKey, collectionRefreshKey, onShowTrash, showTrash, trashRefreshKey, onToggleSidebar, onNoteChange }) => {
+const Sidebar = ({ activeNote, onSelectNote, onAddCollection, favoriteRefreshKey, sharedRefreshKey, collectionRefreshKey, onShowTrash, showTrash, trashRefreshKey, onToggleSidebar, onNoteChange, activeCollection }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const user = useSelector((state) => state.auth.user);
@@ -198,6 +198,38 @@ const Sidebar = ({ activeNote, onSelectNote, onAddCollection, favoriteRefreshKey
     })();
     return () => { cancelled = true; };
   }, [sharedRefreshKey]);
+
+  useEffect(() => {
+    if (!activeNote?._id) return;
+    setNotesMap((prev) => {
+      let found = false;
+      for (const cId of Object.keys(prev)) {
+        const notes = prev[cId];
+        const idx = notes.findIndex((n) => n._id === activeNote._id);
+        if (idx !== -1) {
+          if (notes[idx].title === activeNote.title && notes[idx].emoji === activeNote.emoji) return prev;
+          const updated = [...notes];
+          updated[idx] = { ...updated[idx], title: activeNote.title, emoji: activeNote.emoji };
+          const next = { ...prev, [cId]: updated };
+          found = true;
+          return next;
+        }
+      }
+      return prev;
+    });
+  }, [activeNote?.title, activeNote?.emoji, activeNote?._id]);
+
+  useEffect(() => {
+    if (!activeCollection?._id) return;
+    setCollections((prev) => {
+      const idx = prev.findIndex((c) => c._id === activeCollection._id);
+      if (idx === -1) return prev;
+      if (prev[idx].name === activeCollection.name && prev[idx].emoji === activeCollection.emoji) return prev;
+      const updated = [...prev];
+      updated[idx] = { ...updated[idx], name: activeCollection.name, emoji: activeCollection.emoji };
+      return updated;
+    });
+  }, [activeCollection?.name, activeCollection?.emoji, activeCollection?._id]);
 
   useEffect(() => {
     localStorage.setItem('sidebarExpanded', JSON.stringify(expanded));
@@ -508,9 +540,9 @@ const Sidebar = ({ activeNote, onSelectNote, onAddCollection, favoriteRefreshKey
         <div className="sidebar-notes">
           {(notesMap[col._id] || []).map((note) => {
             const isActive = activeNoteId === note._id;
-            const rawTitle = isActive ? activeNote.title : note.title;
-            const displayTitle = rawTitle || 'Sin título';
-            const noteEmoji = isActive ? activeNote.emoji : note.emoji;
+            const currentNote = isActive && activeNote ? { ...note, title: activeNote.title, emoji: activeNote.emoji } : note;
+            const displayTitle = currentNote.title || 'Sin título';
+            const noteEmoji = currentNote.emoji;
             return (
               <div
                 key={note._id}
@@ -518,22 +550,24 @@ const Sidebar = ({ activeNote, onSelectNote, onAddCollection, favoriteRefreshKey
                 onClick={() => {
                   if (activeNote && activeNote._id !== note._id) {
                     setNotesMap((prev) => {
-                      for (const cId of Object.keys(prev)) {
-                        const notes = prev[cId];
+                      const next = { ...prev };
+                      for (const cId of Object.keys(next)) {
+                        const notes = next[cId];
                         const idx = notes.findIndex((n) => n._id === activeNote._id);
                         if (idx !== -1) {
                           const updated = [...notes];
                           updated[idx] = { ...updated[idx], emoji: activeNote.emoji, title: activeNote.title };
-                          return { ...prev, [cId]: updated };
+                          next[cId] = updated;
+                          break;
                         }
                       }
-                      return prev;
+                      return next;
                     });
                   }
                   onSelectNote({
                     _id: note._id,
-                    title: note.title || 'Sin título',
-                    emoji: note.emoji != null ? note.emoji : null,
+                    title: currentNote.title || 'Sin título',
+                    emoji: currentNote.emoji != null ? currentNote.emoji : null,
                     updatedAt: note.updatedAt,
                     collectionId: col._id,
                   });
@@ -711,7 +745,8 @@ const Sidebar = ({ activeNote, onSelectNote, onAddCollection, favoriteRefreshKey
                         {collections.map(col => renderCollection(col, true))}
                         {sharedNotes.map((note) => {
                           const isActive = activeNoteId === note._id;
-                          const displayTitle = note.title || 'Sin título';
+                          const currentNote = isActive && activeNote ? { ...note, title: activeNote.title, emoji: activeNote.emoji } : note;
+                          const displayTitle = currentNote.title || 'Sin título';
                           return (
                             <div
                               key={note._id}
@@ -719,14 +754,14 @@ const Sidebar = ({ activeNote, onSelectNote, onAddCollection, favoriteRefreshKey
                               onClick={() => {
                                 onSelectNote({
                                   _id: note._id,
-                                  title: note.title || 'Sin título',
-                                  emoji: note.emoji != null ? note.emoji : null,
+                                  title: currentNote.title || 'Sin título',
+                                  emoji: currentNote.emoji != null ? currentNote.emoji : null,
                                   collectionId: note.collectionId,
                                 });
                               }}
                             >
-                              {note.emoji ? (
-                                <span className="sidebar-note-icon">{note.emoji}</span>
+                              {currentNote.emoji ? (
+                                <span className="sidebar-note-icon">{currentNote.emoji}</span>
                               ) : (
                                 <span className="sidebar-note-icon">
                                   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" width="15" height="15">
@@ -849,8 +884,9 @@ const Sidebar = ({ activeNote, onSelectNote, onAddCollection, favoriteRefreshKey
                           <div className="sidebar-notes">
                             {col.notes.map((note) => {
                               const isActive = activeNoteId === note._id;
-                              const displayTitle = (isActive ? activeNote.title : note.title) || 'Sin título';
-                              const noteEmoji = isActive ? activeNote.emoji : note.emoji;
+                              const currentNote = isActive && activeNote ? { ...note, title: activeNote.title, emoji: activeNote.emoji } : note;
+                              const displayTitle = currentNote.title || 'Sin título';
+                              const noteEmoji = currentNote.emoji;
                               return (
                                 <div
                                   key={note._id}
@@ -858,8 +894,8 @@ const Sidebar = ({ activeNote, onSelectNote, onAddCollection, favoriteRefreshKey
                                   onClick={() => {
                                     onSelectNote({
                                       _id: note._id,
-                                      title: note.title || 'Sin título',
-                                      emoji: note.emoji != null ? note.emoji : null,
+                                      title: currentNote.title || 'Sin título',
+                                      emoji: currentNote.emoji != null ? currentNote.emoji : null,
                                       collectionId: col._id,
                                       updatedAt: note.updatedAt,
                                     });
@@ -902,8 +938,9 @@ const Sidebar = ({ activeNote, onSelectNote, onAddCollection, favoriteRefreshKey
                     ))}
                     {favorites.map((note) => {
                       const isActive = activeNoteId === note._id;
-                      const displayTitle = (isActive ? activeNote.title : note.title) || 'Sin título';
-                      const noteEmoji = isActive ? activeNote.emoji : note.emoji;
+                      const currentNote = isActive && activeNote ? { ...note, title: activeNote.title, emoji: activeNote.emoji } : note;
+                      const displayTitle = currentNote.title || 'Sin título';
+                      const noteEmoji = currentNote.emoji;
                       return (
                         <div
                           key={note._id}
@@ -911,8 +948,8 @@ const Sidebar = ({ activeNote, onSelectNote, onAddCollection, favoriteRefreshKey
                           onClick={() => {
                             onSelectNote({
                               _id: note._id,
-                              title: note.title || 'Sin título',
-                              emoji: note.emoji != null ? note.emoji : null,
+                              title: currentNote.title || 'Sin título',
+                              emoji: currentNote.emoji != null ? currentNote.emoji : null,
                               collectionId: note.collectionId,
                               updatedAt: note.updatedAt,
                             });
@@ -1002,9 +1039,9 @@ const Sidebar = ({ activeNote, onSelectNote, onAddCollection, favoriteRefreshKey
                           <div className="sidebar-notes">
                             {(col.notes || []).map((note) => {
                               const isActive = activeNoteId === note._id;
-                              const rawTitle = isActive ? activeNote.title : note.title;
-                              const displayTitle = rawTitle || 'Sin título';
-                              const noteEmoji = isActive ? activeNote.emoji : note.emoji;
+                              const currentNote = isActive && activeNote ? { ...note, title: activeNote.title, emoji: activeNote.emoji } : note;
+                              const displayTitle = currentNote.title || 'Sin título';
+                              const noteEmoji = currentNote.emoji;
                               return (
                                 <div
                                   key={note._id}
@@ -1012,8 +1049,8 @@ const Sidebar = ({ activeNote, onSelectNote, onAddCollection, favoriteRefreshKey
                                   onClick={() => {
                                     onSelectNote({
                                       _id: note._id,
-                                      title: note.title || 'Sin título',
-                                      emoji: note.emoji != null ? note.emoji : null,
+                                      title: currentNote.title || 'Sin título',
+                                      emoji: currentNote.emoji != null ? currentNote.emoji : null,
                                       updatedAt: note.updatedAt,
                                       collectionId: col._id,
                                     });

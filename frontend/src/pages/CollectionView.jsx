@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams } from "react-router-dom";
 import EmojiPicker from "../components/EmojiPicker";
 import {
@@ -15,10 +15,17 @@ const CollectionView = ({ onCollectionUpdate }) => {
   const [nameValue, setNameValue] = useState("");
   const [now, setNow] = useState(() => Date.now());
   const titleInputRef = useRef(null);
+  const saveTimeoutRef = useRef(null);
 
   useEffect(() => {
     const interval = setInterval(() => setNow(Date.now()), 60000);
     return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+    };
   }, []);
 
   useEffect(() => {
@@ -44,30 +51,39 @@ const CollectionView = ({ onCollectionUpdate }) => {
     fetchData();
   }, [collectionId]);
 
-  const handleSaveName = async (newName) => {
+  const handleSaveName = useCallback((newName) => {
     const trimmed = newName.trim();
     const saveName = trimmed || 'Sin título';
-    if (saveName === collection.name) return;
+    if (!collection || saveName === collection.name) return;
     try {
-      const updated = await renameCollection(collectionId, saveName, collection.emoji);
-      setCollection(updated);
-      setNameValue(updated.name === 'Sin título' ? '' : updated.name);
-      onCollectionUpdate?.();
+      const updated = renameCollection(collectionId, saveName, collection.emoji);
+      updated.then(res => {
+        setCollection(res);
+        setNameValue(res.name === 'Sin título' ? '' : res.name);
+        onCollectionUpdate?.(res);
+      });
     } catch (err) {
-      alert("Error al renombrar: " + err.message);
-      setNameValue(collection.name === 'Sin título' ? '' : collection.name);
+      console.error("Error al renombrar:", err);
     }
-  };
+  }, [collection, collectionId, onCollectionUpdate]);
 
-  const handleEmojiSelect = async (emoji) => {
+  const handleNameChange = useCallback((e) => {
+    const newName = e.target.value;
+    setNameValue(newName);
+    if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+    saveTimeoutRef.current = setTimeout(() => handleSaveName(newName), 300);
+  }, [handleSaveName]);
+
+  const handleEmojiSelect = useCallback(async (emoji) => {
+    if (!collection) return;
     try {
       const updated = await renameCollection(collectionId, collection.name, emoji);
       setCollection(updated);
-      onCollectionUpdate?.();
+      onCollectionUpdate?.(updated);
     } catch (err) {
-      alert("Error al cambiar emoji: " + err.message);
+      console.error("Error al cambiar emoji:", err);
     }
-  };
+  }, [collection, collectionId, onCollectionUpdate]);
 
   const getRelativeTime = (timestamp) => {
     if (!timestamp) return "";
@@ -103,10 +119,13 @@ const CollectionView = ({ onCollectionUpdate }) => {
             className="editor-title-input"
             type="text"
             value={nameValue}
-            onChange={(e) => setNameValue(e.target.value)}
+            onChange={handleNameChange}
             onBlur={() => handleSaveName(nameValue)}
             onKeyDown={(e) => {
-              if (e.key === "Enter") handleSaveName(nameValue);
+              if (e.key === "Enter") {
+                if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+                handleSaveName(nameValue);
+              }
               if (e.key === "Escape") {
                 setNameValue(collection.name);
                 titleInputRef.current?.blur();

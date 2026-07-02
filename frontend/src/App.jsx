@@ -39,6 +39,7 @@ function AppLayout() {
   const [sharedRefreshKey, setSharedRefreshKey] = useState(0);
   const [collectionRefreshKey, setCollectionRefreshKey] = useState(0);
   const [noteRefreshKey, setNoteRefreshKey] = useState(0);
+  const [activeCollection, setActiveCollection] = useState(null);
 
   useEffect(() => {
     if (isCollectionView) {
@@ -93,6 +94,7 @@ function AppLayout() {
     } else {
       setShowTrash(false);
       setActiveNote(note);
+      setCollectionRefreshKey((k) => k + 1);
       if (isLibrary || isCollectionView) {
         navigate(`/note/${note._id}`);
       }
@@ -137,8 +139,11 @@ function AppLayout() {
     setSharedRefreshKey((k) => k + 1);
   }, []);
 
-  const handleCollectionUpdate = useCallback(() => {
+  const handleCollectionUpdate = useCallback((updatedCollection) => {
     setCollectionRefreshKey((k) => k + 1);
+    if (updatedCollection) {
+      setActiveCollection(updatedCollection);
+    }
   }, []);
 
   return (
@@ -155,6 +160,7 @@ function AppLayout() {
         isOpen={sidebarOpen}
         onToggleSidebar={toggleSidebar}
         onNoteChange={() => setNoteRefreshKey(k => k + 1)}
+        activeCollection={activeCollection}
       />
       {!sidebarOpen && (
         <button
