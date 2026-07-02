@@ -344,14 +344,15 @@ const Sidebar = ({ activeNote, onSelectNote, onAddCollection, favoriteRefreshKey
 
   const handleToggleFavorite = async (e, noteId) => {
     e.stopPropagation();
-    setCollections((prev) =>
-      prev.map((c) => ({
-        ...c,
-        notes: c.notes?.map((n) =>
-          n._id === noteId ? { ...n, isFavorite: !n.isFavorite } : n
-        ),
-      }))
+    const toggle = (notes) => notes?.map((n) =>
+      n._id === noteId ? { ...n, metadata: { ...n.metadata, isFavorite: !n.metadata?.isFavorite } } : n
     );
+    setCollections((prev) => prev.map((c) => ({ ...c, notes: toggle(c.notes) })));
+    setNotesMap((prev) => {
+      const next = {};
+      for (const [k, v] of Object.entries(prev)) next[k] = toggle(v);
+      return next;
+    });
     setFavorites((prev) => {
       const exists = prev.find((n) => n._id === noteId);
       if (exists) return prev.filter((n) => n._id !== noteId);
