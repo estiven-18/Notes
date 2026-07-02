@@ -310,11 +310,11 @@ body {
   display: flex;
   align-items: center;
   gap: 4px;
-  padding: 6px 10px;
-  margin: 4px 10px 0;
+  padding: 4px 8px;
+  margin: 2px 8px 0;
   cursor: pointer;
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 500;
   color: var(--color-ink-faint);
   letter-spacing: 0.03em;
   transition: background 0.15s, color 0.15s;
@@ -342,8 +342,8 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 16px;
-  height: 16px;
+  width: 14px;
+  height: 14px;
   flex-shrink: 0;
   transition: transform 0.15s, opacity 0.15s;
   opacity: 0;
@@ -358,7 +358,7 @@ body {
 }
 
 .sidebar-nav-title {
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 500;
   color: var(--color-ink-faint);
 }
@@ -399,7 +399,7 @@ body {
 }
 
 .sidebar-nav {
-  padding: 4px 8px;
+  padding: 2px 8px;
 }
 
 .sidebar-search {
@@ -484,17 +484,17 @@ body {
 
 .sidebar-collection {
   position: relative;
-  margin-bottom: 2px;
+  margin-bottom: 1px;
 }
 
 .sidebar-collection-header {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 6px 8px;
-  margin: auto 8px 0;
-  border-radius: 8px;
-  height: 36px;
+  padding: 4px 8px;
+  margin: 0 8px;
+  border-radius: 6px;
+  height: 26px;
   cursor: pointer;
   font-size: 14px;
   color: #6C6A66;
@@ -504,13 +504,13 @@ body {
 
 .sidebar-collection-icon-wrapper {
   position: relative;
-  width: 38px;
-  height: 30px;
+  width: 24px;
+  height: 20px;
   flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 27.5px;
+  font-size: 16px;
   line-height: 1;
 }
 
@@ -524,8 +524,8 @@ body {
 }
 
 .sidebar-collection-icon svg {
-  width: 18px;
-  height: 18px;
+  width: 14px;
+  height: 14px;
 }
 
 .sidebar-collection-chevron {
@@ -810,20 +810,20 @@ body {
 }
 
 .sidebar-notes {
-  padding-left: 16px;
+  padding-left: 12px;
 }
 
 .sidebar-note {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 6px 8px;
-  border-radius: 8px;
+  padding: 4px 8px;
+  border-radius: 6px;
   cursor: pointer;
   font-size: 14px;
   color: #6C6A66;
   transition: background 0.15s;
-  margin: 1px 4px 1px 0;
+  margin: 1px 8px;
 }
 
 .sidebar-note:hover {
@@ -837,7 +837,7 @@ body {
 }
 
 .sidebar-note-icon {
-  font-size: 15px;
+  font-size: 16px;
   flex-shrink: 0;
   display: flex;
   align-items: center;
@@ -849,8 +849,8 @@ body {
 }
 
 .sidebar-note-icon svg {
-  width: 15px;
-  height: 15px;
+  width: 14px;
+  height: 14px;
 }
 
 .sidebar-note.active .sidebar-note-icon {
@@ -2466,9 +2466,9 @@ body {
 }
 
 .trash-modal-col-icon {
-  font-size: 20px;
+  font-size: 18px;
   flex-shrink: 0;
-  width: 24px;
+  width: 22px;
   text-align: center;
   display: flex;
   align-items: center;
@@ -2477,7 +2477,7 @@ body {
 }
 
 .trash-emoji {
-  font-size: 20px;
+  font-size: 18px;
   line-height: 1;
 }
 
