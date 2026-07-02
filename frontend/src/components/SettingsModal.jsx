@@ -85,7 +85,7 @@ const SettingsModalContent = ({ user, loading, onClose }) => {
 
   const handleDeleteAccount = () => {
     if (deleteConfirm === user?.name) {
-      alert("Función de eliminar espacio de trabajo no disponible aún");
+      alert("Función de eliminar cuenta no disponible aún");
       setShowDeleteModal(false);
       setDeleteConfirm("");
     }
@@ -206,13 +206,13 @@ const SettingsModalContent = ({ user, loading, onClose }) => {
             <h3 className="ty-title" style={{ marginBottom: 12 }}>Zona de riesgo</h3>
             <div className="settings-danger-row">
               <div>
-                <div className="ty-body-md" style={{ fontWeight: 500 }}>Eliminar todo el espacio de trabajo</div>
+                <div className="ty-body-md" style={{ fontWeight: 500 }}>Eliminar cuenta</div>
                 <div className="ty-caption" style={{ color: "var(--color-ink-muted)", marginTop: 2 }}>
-                  Se eliminará de forma permanente este espacio de trabajo, incluidas todas las páginas y archivos.
+                  Se eliminará de forma permanente tu cuenta, incluidas todas las páginas y archivos.
                 </div>
               </div>
               <button className="settings-btn-danger-text" onClick={() => setShowDeleteModal(true)}>
-                Eliminar todo el espacio de trabajo
+                Eliminar cuenta
               </button>
             </div>
           </div>
@@ -228,15 +228,15 @@ const SettingsModalContent = ({ user, loading, onClose }) => {
               </svg>
             </div>
             <h3 className="ty-heading-3" style={{ textAlign: "center", marginBottom: 8 }}>
-              ¿Deseas eliminar este espacio de trabajo de forma permanente?
+              ¿Deseas eliminar tu cuenta de forma permanente?
             </h3>
             <p className="ty-body-sm" style={{ color: "var(--color-ink-muted)", textAlign: "center", marginBottom: 20 }}>
-              Esta acción no se puede deshacer. Se eliminará de forma permanente el espacio de trabajo, incluyendo todas las páginas y archivos. Escribe el nombre del espacio de trabajo para confirmar.
+              Esta acción no se puede deshacer. Se eliminará de forma permanente tu cuenta, incluyendo todas las páginas y archivos. Escribe tu nombre para confirmar.
             </p>
             <input
               className="settings-input"
               type="text"
-              placeholder={user?.name || "Nombre del espacio"}
+              placeholder={user?.name || "Tu nombre"}
               value={deleteConfirm}
               onChange={(e) => setDeleteConfirm(e.target.value)}
               style={{ width: "100%", marginBottom: 16 }}
@@ -246,7 +246,7 @@ const SettingsModalContent = ({ user, loading, onClose }) => {
               disabled={deleteConfirm !== user?.name}
               onClick={handleDeleteAccount}
             >
-              Eliminar espacio de trabajo
+              Eliminar cuenta
             </button>
             <button
               className="settings-btn-cancel"

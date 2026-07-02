@@ -37,12 +37,7 @@ export const getCollection = async (req, res) => {
 export const createCollection = async (req, res) => {
   try {
     const { name } = req.body;
-    if (!name || !name.trim()) {
-      return res
-        .status(400)
-        .json({ success: false, message: "El nombre es requerido" });
-    }
-    const collection = await Collection.create({ user: req.user._id, name: name.trim() });
+    const collection = await Collection.create({ user: req.user._id, name: name ? name.trim() : 'Sin título' });
     res.status(201).json({ success: true, data: collection });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -53,12 +48,7 @@ export const updateCollection = async (req, res) => {
   try {
     const { id } = req.params;
     const { name, emoji } = req.body;
-    if (!name || !name.trim()) {
-      return res
-        .status(400)
-        .json({ success: false, message: "El nombre es requerido" });
-    }
-    const updateData = { name: name.trim() };
+    const updateData = { name: name ? name.trim() : 'Sin título' };
     if (emoji !== undefined) updateData.emoji = emoji;
     const collection = await Collection.findOneAndUpdate(
       { _id: id, user: req.user._id },

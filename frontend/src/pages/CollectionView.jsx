@@ -31,7 +31,10 @@ const CollectionView = ({ onCollectionUpdate }) => {
         ]);
         setCollection(col);
         setNotes(colNotes || []);
-        setNameValue(col.name);
+        setNameValue(col.name === 'Sin título' ? '' : col.name);
+        if (col.name === 'Sin título') {
+          setTimeout(() => titleInputRef.current?.focus(), 100);
+        }
       } catch (err) {
         console.error("Error loading collection:", err);
       } finally {
@@ -43,17 +46,16 @@ const CollectionView = ({ onCollectionUpdate }) => {
 
   const handleSaveName = async (newName) => {
     const trimmed = newName.trim();
-    if (!trimmed || trimmed === collection.name) {
-      setNameValue(collection.name);
-      return;
-    }
+    const saveName = trimmed || 'Sin título';
+    if (saveName === collection.name) return;
     try {
-      const updated = await renameCollection(collectionId, trimmed, collection.emoji);
+      const updated = await renameCollection(collectionId, saveName, collection.emoji);
       setCollection(updated);
+      setNameValue(updated.name === 'Sin título' ? '' : updated.name);
       onCollectionUpdate?.();
     } catch (err) {
       alert("Error al renombrar: " + err.message);
-      setNameValue(collection.name);
+      setNameValue(collection.name === 'Sin título' ? '' : collection.name);
     }
   };
 
