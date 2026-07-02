@@ -2694,7 +2694,7 @@ body {
   font-weight: 500;
   cursor: pointer;
   border: none;
-  background: transparent;
+  background: #fecaca;
   color: #991b1b;
   font-family: inherit;
   transition: background 0.15s;
@@ -2702,7 +2702,7 @@ body {
 }
 
 .trash-btn-delete:hover {
-  background: #ffccc7;
+  background: #f5b7b1;
 }
 
 .trash-item-icon {
@@ -2763,7 +2763,7 @@ body {
 }
 
 .trash-item-btn:hover {
-  background: #eeeeed;
+  background: #d9d9d6;
   color: #474746;
 }
 

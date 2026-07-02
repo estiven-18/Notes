@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { getTrashItems, restoreNote, permanentDeleteNote, restoreCollection, permanentDeleteCollection, getNoteById } from "../services/api";
+import { getTrashItems, restoreNote, permanentDeleteNote, restoreCollection, permanentDeleteCollection } from "../services/api";
 import ModalPortal from "./ModalPortal";
 import ConfirmModal from "./ConfirmModal";
 
@@ -8,8 +8,6 @@ const TRASH_EXPIRY_DAYS = 30;
 const TrashView = ({ onClose, onRefreshSidebar, onNoteRestored }) => {
   const [trashItems, setTrashItems] = useState({ notes: [], collections: [] });
   const [loading, setLoading] = useState(true);
-  const [selectedNote, setSelectedNote] = useState(null);
-  const [notePreview, setNotePreview] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [expandedCollections, setExpandedCollections] = useState({});
   const [confirmModal, setConfirmModal] = useState(null);
@@ -32,18 +30,6 @@ const TrashView = ({ onClose, onRefreshSidebar, onNoteRestored }) => {
     }, 0);
     return () => clearTimeout(timer);
   }, [loadTrash]);
-
-  useEffect(() => {
-    let cancelled = false;
-    if (selectedNote?.isDeleted) {
-      getNoteById(selectedNote._id).then((note) => {
-        if (!cancelled) setNotePreview(note);
-      }).catch(() => {
-        if (!cancelled) setNotePreview(null);
-      });
-    }
-    return () => { cancelled = true; };
-  }, [selectedNote]);
 
   const getDaysRemaining = (deletedAt) => {
     if (!deletedAt) return TRASH_EXPIRY_DAYS;
@@ -132,12 +118,10 @@ const TrashView = ({ onClose, onRefreshSidebar, onNoteRestored }) => {
 
   const renderNoteItem = (note) => {
     const days = getDaysRemaining(note.deletedAt);
-    const isSelected = selectedNote?._id === note._id;
     return (
       <div
         key={note._id}
-        className={`trash-modal-note-item ${isSelected ? "active" : ""}`}
-        onClick={() => setSelectedNote({ _id: note._id, isDeleted: true, parentDeleted: note.parentDeleted })}
+        className="trash-modal-note-item"
       >
         <div className="trash-item-icon">
           {note.emoji ? (
@@ -171,72 +155,10 @@ const TrashView = ({ onClose, onRefreshSidebar, onNoteRestored }) => {
     );
   };
 
-  const renderPreview = () => {
-    if (!selectedNote || !notePreview) return null;
-    const days = getDaysRemaining(notePreview.deletedAt);
-    const parentDeleted = selectedNote.parentDeleted;
-    return (
-      <div className="trash-modal-preview">
-        <div className="trash-modal-preview-header">
-          <button className="trash-modal-back" onClick={() => { setSelectedNote(null); setNotePreview(null); }}>
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" width="20" height="20">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
-            </svg>
-            Back
-          </button>
-        </div>
-        <div className="trash-modal-preview-banner">
-          <div className="trash-modal-preview-info">
-            {notePreview.emoji && <span className="trash-preview-emoji">{notePreview.emoji}</span>}
-            <div className="trash-preview-text">
-              <span className="trash-preview-title">{notePreview.title || 'Sin t\u00edtulo'}</span>
-              <span className="trash-preview-meta">
-                {parentDeleted
-                  ? 'Pertenece a una colecci\u00f3n en la Papelera. Restaura la colecci\u00f3n.'
-                  : `Moviste esta p\u00e1gina el ${formatDate(notePreview.deletedAt)}.${days > 0 ? ` Se eliminar\u00e1 en ${days} d\u00eda${days !== 1 ? 's' : ''}.` : ' Se eliminar\u00e1 hoy.'}`}
-              </span>
-            </div>
-          </div>
-          <div className="trash-preview-actions">
-            {!parentDeleted && (
-              <button className="trash-btn-restore" onClick={() => handleRestore("note", notePreview._id)}>
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" width="14" height="14">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 15 3 9m0 0 6-6M3 9h12a6 6 0 0 1 0 12h-3" />
-                </svg>
-                Restore page
-              </button>
-            )}
-            <button className="trash-btn-delete" onClick={() => handlePermanentDelete("note", notePreview._id, notePreview.title)}>
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" width="14" height="14">
-                <path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
-              </svg>
-              Permanently delete
-            </button>
-          </div>
-        </div>
-        <div className="trash-modal-preview-content">
-          <div className="trash-preview-title-area">
-            {notePreview.emoji && <span className="editor-emoji-display">{notePreview.emoji}</span>}
-            <div className="editor-title-viewonly">{notePreview.title || 'Sin t\u00edtulo'}</div>
-          </div>
-          <div className="trash-preview-blocks">
-            {notePreview.content && notePreview.content.map((block, i) => (
-              <div key={i} className="trash-block">
-                {block.content && block.content.map((inline, j) => (
-                  <span key={j}>{inline.text || ""}</span>
-                ))}
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-    );
-  };
-
   return (
     <>
     <ModalPortal>
-      <div className="trash-modal-overlay" onClick={() => { setSelectedNote(null); setNotePreview(null); onClose(); }}>
+      <div className="trash-modal-overlay" onClick={onClose}>
         <div className="trash-modal-panel" onClick={(e) => e.stopPropagation()}>
           <div className="trash-modal-topbar">
             <div className="trash-modal-topbar-left">
@@ -254,20 +176,18 @@ const TrashView = ({ onClose, onRefreshSidebar, onNoteRestored }) => {
             </div>
           </div>
 
-          {selectedNote && notePreview ? renderPreview() : (
-            <>
-              <div className="trash-modal-search">
-                <input
-                  className="trash-search-input"
-                  type="text"
-                  placeholder="Buscar en la Papelera..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  autoFocus
-                />
-              </div>
+          <div className="trash-modal-search">
+            <input
+              className="trash-search-input"
+              type="text"
+              placeholder="Buscar en la Papelera..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              autoFocus
+            />
+          </div>
 
-              <div className="trash-modal-body">
+          <div className="trash-modal-body">
                 {loading ? (
                   <div className="trash-loading">Cargando...</div>
                 ) : filteredNotes.length === 0 && filteredCollections.length === 0 ? (
@@ -300,7 +220,7 @@ const TrashView = ({ onClose, onRefreshSidebar, onNoteRestored }) => {
                             <span className="trash-modal-col-name">{col.name}</span>
                             <span className="trash-modal-col-meta">
                               {formatDate(col.deletedAt)}
-                              {days > 0 ? ` \u00B7 ${days} d\u00eda${days !== 1 ? 's' : ''}` : ' \u00B7 Hoy'}
+                              {days > 0 ? ` · ${days} día${days !== 1 ? 's' : ''}` : ' · Hoy'}
                             </span>
                             <div className="trash-item-actions" onClick={(e) => e.stopPropagation()}>
                               <button className="trash-item-btn" onClick={() => handleRestore("collection", col._id)} title="Restaurar">
@@ -321,7 +241,7 @@ const TrashView = ({ onClose, onRefreshSidebar, onNoteRestored }) => {
                             </div>
                           )}
                           {isExpanded && colNotes.length === 0 && (
-                            <div className="trash-modal-col-empty">No hay notas en esta colecci\u00f3n</div>
+                            <div className="trash-modal-col-empty">No hay notas en esta colección</div>
                           )}
                         </div>
                       );
@@ -335,8 +255,6 @@ const TrashView = ({ onClose, onRefreshSidebar, onNoteRestored }) => {
                   </div>
                 )}
               </div>
-            </>
-          )}
 
           <div className="trash-modal-footer">
             <p>Una vez que una colección o nota esté en la Papelera durante 30 días, se eliminará automáticamente.</p>
