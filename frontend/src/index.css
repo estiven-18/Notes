@@ -358,6 +358,9 @@ body {
 }
 
 .sidebar-nav-title {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-ink-faint);
 }
 
 
@@ -606,7 +609,7 @@ body {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-weight: 600;
+  font-weight: 500;
   font-size: 14px;
   color: #6C6A66;
 }
@@ -655,6 +658,29 @@ body {
 
 .sidebar-collection-star.favorited {
   color: #f59e0b;
+}
+
+.sidebar-collection-add-btn {
+  opacity: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  padding: 2px 3px;
+  border-radius: 4px;
+  color: #999;
+  display: flex;
+  align-items: center;
+  transition: opacity 0.15s, color 0.15s, background 0.15s;
+  flex-shrink: 0;
+}
+
+.sidebar-collection-add-btn:hover {
+  color: #474746;
+  background: #eeeeed;
+}
+
+.sidebar-collection-header:hover .sidebar-collection-add-btn {
+  opacity: 1;
 }
 
 .sidebar-collection-share {
@@ -811,20 +837,20 @@ body {
 }
 
 .sidebar-note-icon {
-  font-size: 20px;
+  font-size: 15px;
   flex-shrink: 0;
   display: flex;
   align-items: center;
   color: #999;
-  width: 22px;
-  height: 22px;
+  width: 18px;
+  height: 18px;
   text-align: center;
   justify-content: center;
 }
 
 .sidebar-note-icon svg {
-  width: 18px;
-  height: 18px;
+  width: 15px;
+  height: 15px;
 }
 
 .sidebar-note.active .sidebar-note-icon {
@@ -836,8 +862,8 @@ body {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 20px;
-  font-weight: 600;
+  font-size: 14px;
+  font-weight: 500;
   color: #6C6A66;
 }
 
@@ -2000,7 +2026,7 @@ body {
 }
 
 .notif-unread-pill {
-  background: #e53e3e;
+  background: #2563eb;
   color: white;
   font-size: 10px;
   font-weight: 700;
