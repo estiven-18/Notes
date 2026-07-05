@@ -13,11 +13,33 @@ import ShareNoteModal from "./ShareNoteModal";
 import ModalPortal from "./ModalPortal";
 import CoverPicker from "./CoverPicker";
 import { PDFExporter, pdfDefaultSchemaMappings } from "@blocknote/xl-pdf-exporter";
-import { pdf, Text, View, Image, StyleSheet } from "@react-pdf/renderer";
+import { pdf, Text, View } from "@react-pdf/renderer";
 const userColors = [
   "#ff6b6b", "#ffa94d", "#ffd43b", "#69db7c", "#38d9a9",
   "#4dabf7", "#748ffc", "#da77f2", "#f783ac", "#63e6be",
 ];
+
+const styles = {
+  header: {
+    marginBottom: 20,
+    paddingBottom: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0',
+  },
+  titleContainer: {
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+    gap: 12,
+  },
+  emoji: {
+    fontSize: 32,
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#1a1a1a',
+  },
+};
 
 const NotionEditor = ({ noteId, onTitleChange, onEmojiChange, onFavoriteToggle, onShareChange, sidebarOpen, onToggleSidebar }) => {
   const currentUser = useSelector((state) => state.auth.user);
@@ -61,10 +83,11 @@ const EditorInner = ({ noteId, currentUser, onTitleChange, onEmojiChange, onFavo
   const [userRole, setUserRole] = useState('viewer');
   const [isPublic, setIsPublic] = useState(false);
   const [publicUrl, setPublicUrl] = useState(null);
-  const [showPublicUrl, setShowPublicUrl] = useState(false);
+  const [showShareDropdown, setShowShareDropdown] = useState(false);
+  const [shareTab, setShareTab] = useState("compartir");
+  const [shareEmail, setShareEmail] = useState("");
   const [coverUrl, setCoverUrl] = useState(null);
   const [coverPosition, setCoverPosition] = useState(0);
-  const [showSharedList, setShowSharedList] = useState(false);
   const [isExportingPdf, setIsExportingPdf] = useState(false);
   const titleTimeoutRef = useRef(null);
   const isSavingRef = useRef(false);
@@ -72,6 +95,17 @@ const EditorInner = ({ noteId, currentUser, onTitleChange, onEmojiChange, onFavo
   const loadedContentRef = useRef(null);
 
   const WS_URL = import.meta.env.VITE_WS_URL || `http://localhost:3001`;
+
+  useEffect(() => {
+    if (!showShareDropdown) return;
+    const handleClick = (e) => {
+      if (!e.target.closest('.share-dropdown-wrapper')) {
+        setShowShareDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [showShareDropdown]);
 
   const { ydoc, provider } = useMemo(() => {
     const y = new Y.Doc();
@@ -167,28 +201,6 @@ const EditorInner = ({ noteId, currentUser, onTitleChange, onEmojiChange, onFavo
     }
   }, [editor, title, emoji, isExportingPdf]);
 
-  const styles = StyleSheet.create({
-    header: {
-      marginBottom: 20,
-      paddingBottom: 10,
-      borderBottomWidth: 1,
-      borderBottomColor: '#e0e0e0',
-    },
-    titleContainer: {
-      flexDirection: 'column',
-      alignItems: 'flex-start',
-      gap: 12,
-    },
-    emoji: {
-      fontSize: 32,
-    },
-    title: {
-      fontSize: 24,
-      fontWeight: 'bold',
-      color: '#1a1a1a',
-    },
-  });
-
   useEffect(() => {
     if (!editor) return;
     let cancelled = false;
@@ -242,17 +254,6 @@ const EditorInner = ({ noteId, currentUser, onTitleChange, onEmojiChange, onFavo
     const interval = setInterval(() => doSave(), 2000);
     return () => { clearInterval(interval); };
   }, [doSave]);
-
-  useEffect(() => {
-    if (!showPublicUrl) return;
-    const handler = (e) => {
-      if (!e.target.closest('.public-url-popover') && !e.target.closest('.editor-star-btn.published')) {
-        setShowPublicUrl(false);
-      }
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, [showPublicUrl]);
 
   const handleTitleChange = (e) => {
     const newTitle = e.target.value;
@@ -338,7 +339,6 @@ const EditorInner = ({ noteId, currentUser, onTitleChange, onEmojiChange, onFavo
       setIsPublic(true);
       const fullUrl = window.location.origin + data.publicUrl;
       setPublicUrl(fullUrl);
-      setShowPublicUrl(true);
     } catch (err) {
       alert("Error al publicar: " + err.message);
     }
@@ -378,6 +378,30 @@ const EditorInner = ({ noteId, currentUser, onTitleChange, onEmojiChange, onFavo
               </svg>
             </button>
           )}
+          <span className="editor-topbar-brand">
+            {emoji && <span className="editor-topbar-emoji">{emoji}</span>}
+            {title || 'Sin título'}
+          </span>
+          <span className={`editor-topbar-status ${isPublic ? "public" : "private"}`}>
+            {isPublic ? (
+              <>
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" width="16" height="16">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 21a9.004 9.004 0 0 0 8.716-6.747M12 21a9.004 9.004 0 0 1-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 0 1 7.843 4.582M12 3a8.997 8.997 0 0 0-7.843 4.582m15.686 0A11.953 11.953 0 0 1 12 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0 1 21 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0 1 12 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 0 1 3 12c0-1.605.42-3.113 1.157-4.418" />
+                </svg>
+                Pública
+              </>
+            ) : (
+              <>
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" width="16" height="16">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z" />
+                </svg>
+                Privada
+              </>
+            )}
+          </span>
+        </div>
+        <div className="editor-topbar-right">
+          <SavingIndicator lastSaved={lastSaved} />
           <button
             className={`editor-star-btn ${isFavorite ? "favorited" : ""}`}
             onClick={handleFavoriteClick}
@@ -387,65 +411,6 @@ const EditorInner = ({ noteId, currentUser, onTitleChange, onEmojiChange, onFavo
               <path strokeLinecap="round" strokeLinejoin="round" d="M11.48 3.499a.562.562 0 0 1 1.04 0l2.125 5.111a.563.563 0 0 0 .475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 0 0-.182.557l1.285 5.385a.562.562 0 0 1-.84.61l-4.725-2.885a.562.562 0 0 0-.586 0L6.982 20.54a.562.562 0 0 1-.84-.61l1.285-5.386a.562.562 0 0 0-.182-.557l-4.204-3.602a.562.562 0 0 1 .321-.988l5.518-.442a.563.563 0 0 0 .475-.345L11.48 3.5Z" />
             </svg>
           </button>
-          {userRole === 'owner' && (
-            <button
-              className="editor-star-btn"
-              onClick={() => setShareModalOpen(true)}
-              title="Compartir nota"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" width="16" height="16">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M7.217 10.907a2.25 2.25 0 1 0 0 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186 9.566-5.314m-9.566 7.5 9.566 5.314m0 0a2.25 2.25 0 1 0 3.935 2.186 2.25 2.25 0 0 0-3.935-2.186Zm0-12.814a2.25 2.25 0 1 0 3.933-2.185 2.25 2.25 0 0 0-3.933 2.185Z" />
-              </svg>
-            </button>
-          )}
-          {userRole === 'owner' && (
-            <>
-              <span className="editor-publish-btn-wrapper">
-                <button
-                  className={`editor-star-btn ${isPublic ? "published" : ""}`}
-                  onClick={isPublic ? handleUnpublish : handlePublish}
-                  title={isPublic ? "Despublicar nota" : "Publicar nota"}
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" fill={isPublic ? "currentColor" : "none"} viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" width="16" height="16">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 0 0 2.625.372 9.337 9.337 0 0 0 4.121-.952 4.125 4.125 0 0 0-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.006c0 1.113.285 2.16.786 3.07M15 19.128v-.003" />
-                  </svg>
-                </button>
-              </span>
-              {showPublicUrl && publicUrl && (
-                <div className="public-url-popover">
-                  <div className="public-url-popover-header">
-                    <span>Enlace público</span>
-                    <button className="public-url-close" onClick={() => setShowPublicUrl(false)}>&times;</button>
-                  </div>
-                  <div className="public-url-popover-body">
-                    <input
-                      className="public-url-input"
-                      type="text"
-                      value={publicUrl}
-                      readOnly
-                      onFocus={(e) => e.target.select()}
-                    />
-                    <button
-                      className="public-url-copy"
-                      onClick={(e) => {
-                        navigator.clipboard.writeText(publicUrl);
-                        e.target.textContent = '¡Copiado!';
-                        setTimeout(() => {
-                          e.target.textContent = 'Copiar';
-                        }, 2000);
-                      }}
-                    >
-                      Copiar
-                    </button>
-                  </div>
-                </div>
-              )}
-            </>
-          )}
-          <span className="editor-topbar-brand">{emoji ? `${emoji} ` : ''}{title || 'Sin título'}</span>
-        </div>
-        <div className="editor-topbar-right">
-          <SavingIndicator lastSaved={lastSaved} />
           <button
             className="editor-star-btn"
             onClick={exportToPdf}
@@ -457,28 +422,172 @@ const EditorInner = ({ noteId, currentUser, onTitleChange, onEmojiChange, onFavo
             </svg>
             {isExportingPdf && <span style={{marginLeft: 4}}>Exportando...</span>}
           </button>
-          {noteSharedWith.length > 0 && (
-            <span
-              className="shared-count-badge"
-              onMouseEnter={() => setShowSharedList(true)}
-              onMouseLeave={() => setShowSharedList(false)}
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" width="14" height="14">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M18 18.72a9.094 9.094 0 0 0 3.741-.479 3 3 0 0 0-4.682-2.72m.94 3.198.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0 1 12 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 0 1 6 18.719m12 0a5.971 5.971 0 0 0-.941-3.197m0 0A5.995 5.995 0 0 0 12 12.75a5.995 5.995 0 0 0-5.058 2.772m0 0a3 3 0 0 0-4.681 2.72 8.986 8.986 0 0 0 3.74.477m.94-3.197a5.971 5.971 0 0 0-.94 3.197M15 6.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm6 3a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Zm-13.5 0a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Z" />
-              </svg>
-              {noteSharedWith.length}
-              {showSharedList && (
-                <div className="shared-list-dropdown">
-                  <div className="shared-list-header">Compartido con:</div>
-                  {noteSharedWith.map((s) => (
-                    <div key={s.user?._id || s.user} className="shared-list-item">
-                      <span className="shared-list-avatar" style={{ backgroundColor: `hsl(${(s.user?.name || '').charCodeAt(0) * 7 % 360}, 50%, 50%)` }}>
-                        {(s.user?.name || '?').charAt(0).toUpperCase()}
-                      </span>
-                      <span className="shared-list-name">{s.user?.name || s.user?.email || 'Usuario'}</span>
-                      <span className="shared-list-role">{s.role === 'editor' ? 'Edición' : 'Solo lectura'}</span>
+          {userRole === 'owner' && (
+            <span className="share-dropdown-wrapper">
+              <button
+                className="share-dropdown-btn"
+                onClick={() => setShowShareDropdown(!showShareDropdown)}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" width="16" height="16">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 8.25V18a2.25 2.25 0 0 0 2.25 2.25h13.5A2.25 2.25 0 0 0 21 18V8.25m-18 0V6a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 6v2.25m-18 0h18M5.25 6h.008v.008H5.25V6ZM7.5 6h.008v.008H7.5V6Zm2.25 0h.008v.008H9.75V6Z" />
+                </svg>
+                Compartir
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" width="12" height="12">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
+                </svg>
+              </button>
+              {showShareDropdown && (
+                <div className="share-dropdown-panel">
+                  <div className="share-dropdown-tabs">
+                    <button
+                      className={`share-dropdown-tab ${shareTab === "compartir" ? "active" : ""}`}
+                      onClick={() => setShareTab("compartir")}
+                    >
+                      Compartir
+                    </button>
+                    <button
+                      className={`share-dropdown-tab ${shareTab === "publicar" ? "active" : ""}`}
+                      onClick={() => setShareTab("publicar")}
+                    >
+                      Publicar
+                    </button>
+                  </div>
+                  {shareTab === "compartir" && (
+                    <div className="share-dropdown-body">
+                      <div className="share-dropdown-input-row">
+                        <input
+                          className="share-dropdown-input"
+                          type="email"
+                          placeholder="Correo electrónico o grupo, separados por comas"
+                          value={shareEmail}
+                          onChange={(e) => setShareEmail(e.target.value)}
+                          onKeyDown={async (e) => {
+                            if (e.key === 'Enter' && shareEmail.trim()) {
+                              try {
+                                await handleShareNote(noteId, shareEmail.trim(), 'editor');
+                                setShareEmail("");
+                              } catch {/**/}
+                            }
+                          }}
+                        />
+                        <button
+                          className="share-dropdown-invite-btn"
+                          onClick={async () => {
+                            if (shareEmail.trim()) {
+                              try {
+                                await handleShareNote(noteId, shareEmail.trim(), 'editor');
+                                setShareEmail("");
+                              } catch {/**/}
+                            }
+                          }}
+                          disabled={!shareEmail.trim()}
+                        >
+                          Invitar
+                        </button>
+                      </div>
+                      <div className="share-dropdown-users">
+                        <div className="share-dropdown-user">
+                          <span className="share-dropdown-avatar" style={{ backgroundColor: '#e8e8e6', color: '#999' }}>
+                            {(currentUser?.name || '?').charAt(0).toUpperCase()}
+                          </span>
+                          <div className="share-dropdown-user-info">
+                            <span className="share-dropdown-user-name">{currentUser?.name} <span className="share-dropdown-you">(Tú)</span></span>
+                            <span className="share-dropdown-user-email">{currentUser?.email}</span>
+                          </div>
+                          <span className="share-dropdown-role">Acceso completo</span>
+                        </div>
+                        {noteSharedWith.map((s) => {
+                          const user = s.user || s;
+                          return (
+                            <div key={user._id} className="share-dropdown-user">
+                              <span className="share-dropdown-avatar" style={{ backgroundColor: `hsl(${(user.name || '').charCodeAt(0) * 7 % 360}, 50%, 50%)` }}>
+                                {(user.name || '?').charAt(0).toUpperCase()}
+                              </span>
+                              <div className="share-dropdown-user-info">
+                                <span className="share-dropdown-user-name">{user.name}</span>
+                                <span className="share-dropdown-user-email">{user.email}</span>
+                              </div>
+                              <select
+                                className="share-dropdown-role-select"
+                                value={s.role || 'editor'}
+                                onChange={(e) => handleChangeNoteShareRole(noteId, user._id, e.target.value)}
+                              >
+                                <option value="editor">Edición</option>
+                                <option value="viewer">Solo lectura</option>
+                              </select>
+                              <button
+                                className="share-dropdown-remove"
+                                onClick={() => handleRemoveNoteShare(noteId, user._id)}
+                                title="Quitar acceso"
+                              >
+                                ×
+                              </button>
+                            </div>
+                          );
+                        })}
+                      </div>
                     </div>
-                  ))}
+                  )}
+                  {shareTab === "publicar" && (
+                    <div className="share-dropdown-body">
+                      <div className="share-dropdown-publish">
+                        {isPublic ? (
+                          <>
+                            <p className="share-dropdown-publish-desc">
+                              Compartir a través de un enlace público
+                            </p>
+                            {publicUrl && (
+                              <div className="share-dropdown-public-url">
+                                <input
+                                  className="share-dropdown-public-input"
+                                  type="text"
+                                  value={publicUrl}
+                                  readOnly
+                                  onFocus={(e) => e.target.select()}
+                                />
+                                <button
+                                  className="share-dropdown-copy-btn"
+                                  onClick={(e) => {
+                                    navigator.clipboard.writeText(publicUrl);
+                                    e.target.textContent = '¡Copiado!';
+                                    setTimeout(() => { e.target.textContent = 'Copiar'; }, 2000);
+                                  }}
+                                >
+                                  Copiar
+                                </button>
+                              </div>
+                            )}
+                            <div className="share-dropdown-publish-actions">
+                              <button
+                                className="share-dropdown-publish-btn-outline"
+                                onClick={handleUnpublish}
+                              >
+                                Deshacer
+                              </button>
+                              <button
+                                className="share-dropdown-publish-btn"
+                                onClick={() => publicUrl && window.open(publicUrl, '_blank')}
+                              >
+                                Ver sitio
+                              </button>
+                            </div>
+                          </>
+                        ) : (
+                          <>
+                            <p className="share-dropdown-publish-desc">
+                              Publica esta nota para que cualquiera con el enlace pueda verla.
+                            </p>
+                            <button
+                              className="share-dropdown-publish-btn"
+                              onClick={handlePublish}
+                            >
+                              Publicar
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </span>

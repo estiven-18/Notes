@@ -75,10 +75,6 @@ const TrashView = ({ onClose, onRefreshSidebar, onNoteRestored }) => {
           else await permanentDeleteCollection(id);
           await loadTrash();
           if (onRefreshSidebar) onRefreshSidebar();
-          if (type === "note") {
-            setSelectedNote(null);
-            setNotePreview(null);
-          }
         } catch (err) {
           alert("Error: " + err.message);
         }

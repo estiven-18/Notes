@@ -33,6 +33,7 @@ const Sidebar = ({ activeNote, onSelectNote, onAddCollection, favoriteRefreshKey
   const location = useLocation();
   const user = useSelector((state) => state.auth.user);
   const dispatch = useDispatch();
+  const [workspaceName, setWorkspaceName] = useState(() => localStorage.getItem('workspaceName') || user?.name || "");
   const activeNoteId = activeNote?._id;
   const activeCollectionId = location.pathname.startsWith('/collection/') ? location.pathname.split('/')[2] : null;
   const [showUserMenu, setShowUserMenu] = useState(false);
@@ -107,14 +108,11 @@ const Sidebar = ({ activeNote, onSelectNote, onAddCollection, favoriteRefreshKey
   const loadCollections = useCallback(async () => {
     try {
       const cols = await getCollections();
+      const noteResults = await Promise.all(
+        cols.map(col => getNotesByCollection(col._id).catch(() => []))
+      );
       const notes = {};
-      for (const col of cols) {
-        try {
-          notes[col._id] = await getNotesByCollection(col._id);
-        } catch {
-          notes[col._id] = [];
-        }
-      }
+      cols.forEach((col, i) => { notes[col._id] = noteResults[i]; });
       return { collections: cols, notesMap: notes };
     } catch (err) {
       console.error('Error loading collections:', err);
@@ -652,9 +650,12 @@ const Sidebar = ({ activeNote, onSelectNote, onAddCollection, favoriteRefreshKey
         <div
           className="sidebar-workspace-btn"
           onClick={() => setShowUserMenu(!showUserMenu)}
-          style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', flex: 1, padding: '4px 15px', borderRadius: 50, fontSize: 14, fontWeight: 500, color: 'var(--color-ink)' }}
+          style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', flex: 1, padding: '4px 8px', borderRadius: 8, fontSize: 14, fontWeight: 500, color: '#37352f' }}
         >
-          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user?.name || 'Notes'}</span>
+          <span style={{ width: 24, height: 24, borderRadius: 6, background: '#e8e8e6', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 600, color: '#999', flexShrink: 0 }}>
+            {(workspaceName || user?.name || 'N')?.[0]?.toUpperCase() || 'N'}
+          </span>
+          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{workspaceName || user?.name || 'Notes'}</span>
         </div>
         <button
           className="sidebar-collapse-btn"
@@ -669,29 +670,48 @@ const Sidebar = ({ activeNote, onSelectNote, onAddCollection, favoriteRefreshKey
 
       {showUserMenu && (
         <ModalPortal>
-          <SettingsModal isOpen={showUserMenu} onClose={() => setShowUserMenu(false)} />
+           <SettingsModal isOpen={showUserMenu} onClose={() => setShowUserMenu(false)} onWorkspaceNameChange={(val) => setWorkspaceName(val)} />
         </ModalPortal>
       )}
 
       <div className="sidebar-nav-icons">
         <button className={`sidebar-nav-icon-btn ${location.pathname === '/library' ? 'active' : ''}`} title="Inicio" onClick={() => navigate('/library')}>
-          <svg xmlns="http://www.w3.org/2000/svg" fill={location.pathname === '/library' ? '#383836' : '#999'} viewBox="0 0 20 20" width="20" height="20" aria-hidden="true">
-            <path fillRule="evenodd" d="M9.293 2.293a1 1 0 0 1 1.414 0l7 7A1 1 0 0 1 17 11h-1v6a1 1 0 0 1-1 1h-2a1 1 0 0 1-1-1v-3a1 1 0 0 0-1-1H9a1 1 0 0 0-1 1v3a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-6H3a1 1 0 0 1-.707-1.707z" clipRule="evenodd" />
-          </svg>
+          {location.pathname === '/library' ? (
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="#383836" width="22" height="22" aria-hidden="true">
+              <path d="M11.47 3.841a.75.75 0 0 1 1.06 0l8.69 8.69a.75.75 0 1 0 1.06-1.061l-8.689-8.69a2.25 2.25 0 0 0-3.182 0l-8.69 8.69a.75.75 0 1 0 1.061 1.06l8.69-8.689Z" />
+              <path d="m12 5.432 8.159 8.159c.03.03.06.058.091.086v6.198c0 1.035-.84 1.875-1.875 1.875H15a.75.75 0 0 1-.75-.75v-4.5a.75.75 0 0 0-.75-.75h-3a.75.75 0 0 0-.75.75V21a.75.75 0 0 1-.75.75H5.625a1.875 1.875 0 0 1-1.875-1.875v-6.198a2.29 2.29 0 0 0 .091-.086L12 5.432Z" />
+            </svg>
+          ) : (
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="#999" width="22" height="22" aria-hidden="true">
+              <path strokeLinecap="round" strokeLinejoin="round" d="m2.25 12 8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25" />
+            </svg>
+          )}
         </button>
         <button className={`sidebar-nav-icon-btn ${showNotifications ? 'active' : ''}`} title="Notificaciones" onClick={() => setShowNotifications(!showNotifications)}>
-          <svg xmlns="http://www.w3.org/2000/svg" fill={showNotifications ? '#383836' : '#999'} viewBox="0 0 16 16" width="20" height="20" aria-hidden="true">
-            <path d='M4.98 4a.5.5 0 0 0-.39.188L1.54 8H6a.5.5 0 0 1 .5.5 1.5 1.5 0 1 0 3 0A.5.5 0 0 1 10 8h4.46l-3.05-3.812A.5.5 0 0 0 11.02 4zm-1.17-.437A1.5 1.5 0 0 1 4.98 3h6.04a1.5 1.5 0 0 1 1.17.563l3.7 4.625a.5.5 0 0 1 .106.374l-.39 3.124A1.5 1.5 0 0 1 14.117 13H1.883a1.5 1.5 0 0 1-1.489-1.314l-.39-3.124a.5.5 0 0 1 .106-.374z' />
-          </svg>
+          {showNotifications ? (
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="#383836" width="22" height="22" aria-hidden="true">
+              <path fillRule="evenodd" d="M6.912 3a3 3 0 0 0-2.868 2.118l-2.411 7.838a3 3 0 0 0-.133.882V18a3 3 0 0 0 3 3h15a3 3 0 0 0 3-3v-4.162c0-.299-.045-.596-.133-.882l-2.412-7.838A3 3 0 0 0 17.088 3H6.912Zm13.823 9.75-2.213-7.191A1.5 1.5 0 0 0 17.088 4.5H6.912a1.5 1.5 0 0 0-1.434 1.059L3.265 12.75H6.11a3 3 0 0 1 2.684 1.658l.256.513a1.5 1.5 0 0 0 1.342.829h3.218a1.5 1.5 0 0 0 1.342-.83l.256-.512a3 3 0 0 1 2.684-1.658h2.844Z" clipRule="evenodd" />
+            </svg>
+          ) : (
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="#999" width="22" height="22" aria-hidden="true">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 13.5h3.86a2.25 2.25 0 0 1 2.012 1.244l.256.512a2.25 2.25 0 0 0 2.013 1.244h3.218a2.25 2.25 0 0 0 2.013-1.244l.256-.512a2.25 2.25 0 0 1 2.013-1.244h3.859m-19.5.338V18a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18v-4.162c0-.224-.034-.447-.1-.661L19.24 5.338a2.25 2.25 0 0 0-2.15-1.588H6.911a2.25 2.25 0 0 0-2.15 1.588L2.35 13.177a2.25 2.25 0 0 0-.1.661Z" />
+            </svg>
+          )}
           {notifUnreadCount > 0 && <span className="sidebar-bell-dot"></span>}
         </button>
         <button className={`sidebar-nav-icon-btn ${showSidebarCustomize ? 'active' : ''}`} title="Personalizar secciones" onClick={() => setShowSidebarCustomize(!showSidebarCustomize)}>
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke={showSidebarCustomize ? '#383836' : '#999'} strokeWidth="1.5" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 1 1-3 0m3 0a1.5 1.5 0 1 0-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m-9.75 0h9.75" />
-          </svg>
+          {showSidebarCustomize ? (
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="#383836" width="22" height="22" aria-hidden="true">
+              <path d="M18.75 12.75h1.5a.75.75 0 0 0 0-1.5h-1.5a.75.75 0 0 0 0 1.5ZM12 6a.75.75 0 0 1 .75-.75h7.5a.75.75 0 0 1 0 1.5h-7.5A.75.75 0 0 1 12 6ZM12 18a.75.75 0 0 1 .75-.75h7.5a.75.75 0 0 1 0 1.5h-7.5A.75.75 0 0 1 12 18ZM3.75 6.75h1.5a.75.75 0 1 0 0-1.5h-1.5a.75.75 0 0 0 0 1.5ZM5.25 18.75h-1.5a.75.75 0 0 1 0-1.5h1.5a.75.75 0 0 1 0 1.5ZM3 12a.75.75 0 0 1 .75-.75h7.5a.75.75 0 0 1 0 1.5h-7.5A.75.75 0 0 1 3 12ZM9 3.75a2.25 2.25 0 1 0 0 4.5 2.25 2.25 0 0 0 0-4.5ZM12.75 12a2.25 2.25 0 1 1 4.5 0 2.25 2.25 0 0 1-4.5 0ZM9 15.75a2.25 2.25 0 1 0 0 4.5 2.25 2.25 0 0 0 0-4.5Z" />
+            </svg>
+          ) : (
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="#999" width="22" height="22" aria-hidden="true">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 1 1-3 0m3 0a1.5 1.5 0 1 0-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m-9.75 0h9.75" />
+            </svg>
+          )}
         </button>
         <button className={`sidebar-nav-icon-btn sidebar-nav-icon-search ${showSearch ? 'active' : ''}`} title="Buscar" onClick={() => setShowSearch(true)}>
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke={showSearch ? '#383836' : '#999'} strokeWidth="1.5" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke={showSearch ? '#383836' : '#999'} strokeWidth="1.5" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
             <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607" />
           </svg>
         </button>
@@ -914,7 +934,9 @@ const Sidebar = ({ activeNote, onSelectNote, onAddCollection, favoriteRefreshKey
                             onClick={(e) => handleDeleteCollection(e, col._id, col.name)}
                             title="Eliminar colección"
                           >
-                            ×
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" width="15" height="15">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21q.512.078 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48 48 0 0 0-3.478-.397m-12 .562q.51-.089 1.022-.165m0 0a48 48 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a52 52 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a49 49 0 0 0-7.5 0" />
+                            </svg>
                           </button>
                         </div>
                         {expandedFavCols[col._id] && (
@@ -1058,7 +1080,7 @@ const Sidebar = ({ activeNote, onSelectNote, onAddCollection, favoriteRefreshKey
                                 <span style={{ fontSize: 16, lineHeight: 1 }}>{col.emoji}</span>
                               ) : (
                                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" width="15" height="15">
-                                  <path strokeLinecap="round" strokeLinejoin="round" d="M18 7.5v3m0 0v3m0-3h3m-3 0h-3m-2.25-4.125a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0ZM3 19.235v-.11a6.375 6.375 0 0 1 12.75 0v.109A12.318 12.318 0 0 1 9.374 21c-2.331 0-4.512-.645-6.374-1.766Z" />
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 12.75V12A2.25 2.25 0 0 1 4.5 9.75h15A2.25 2.25 0 0 1 21.75 12v.75m-8.69-6.44-2.12-2.12a1.5 1.5 0 0 0-1.061-.44H4.5A2.25 2.25 0 0 0 2.25 6v12a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9a2.25 2.25 0 0 0-2.25-2.25h-5.379a1.5 1.5 0 0 1-1.06-.44Z" />
                                 </svg>
                               )}
                             </span>

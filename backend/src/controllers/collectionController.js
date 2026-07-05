@@ -28,6 +28,8 @@ export const getCollection = async (req, res) => {
     if (!isOwner && !isShared) {
       return res.status(403).json({ success: false, message: "No tienes acceso a esta colección" });
     }
+    collection.visitedAt = new Date();
+    await collection.save();
     res.json({ success: true, data: collection });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });

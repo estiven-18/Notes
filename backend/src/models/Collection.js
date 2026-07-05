@@ -53,6 +53,10 @@ const collectionSchema = new mongoose.Schema({
   updatedAt: {
     type: Date,
     default: Date.now
+  },
+  visitedAt: {
+    type: Date,
+    default: Date.now
   }
 });
 

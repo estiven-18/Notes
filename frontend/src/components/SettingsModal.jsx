@@ -3,10 +3,17 @@ import { useDispatch, useSelector } from "react-redux";
 import { updateUserProfile, clearError } from "../store/authSlice";
 import { useTheme } from "../store/ThemeContext";
 
-const SettingsModalContent = ({ user, loading, onClose }) => {
+const SettingsModalContent = ({ user, loading, onClose, onWorkspaceNameChange }) => {
   const dispatch = useDispatch();
   const { theme, toggleTheme } = useTheme();
   const [name, setName] = useState(user?.name || "");
+  const [workspaceName, setWorkspaceName] = useState(() => {
+    const stored = localStorage.getItem('workspaceName');
+    if (stored) return stored;
+    const defaultName = user?.name || "";
+    localStorage.setItem('workspaceName', defaultName);
+    return defaultName;
+  });
   const [email, setEmail] = useState(user?.email || "");
   const [originalEmail, setOriginalEmail] = useState(user?.email || "");
   const [password, setPassword] = useState("");
@@ -34,6 +41,14 @@ const SettingsModalContent = ({ user, loading, onClose }) => {
     saveTimer.current = setTimeout(() => {
       dispatch(updateUserProfile({ name: value }));
     }, 500);
+  };
+
+  const handleWorkspaceName = (value) => {
+    setWorkspaceName(value);
+    if (value.trim()) {
+      localStorage.setItem('workspaceName', value);
+      if (onWorkspaceNameChange) onWorkspaceNameChange(value);
+    }
   };
 
   const handleSaveEmail = (e) => {
@@ -115,7 +130,7 @@ const SettingsModalContent = ({ user, loading, onClose }) => {
           {success && <div className="settings-success">{success}</div>}
 
           <div className="settings-field">
-            <label className="ty-caption settings-label">Nombre</label>
+            <label className="ty-caption settings-label">Nombre del perfil</label>
             <input
               className="settings-input"
               type="text"
@@ -172,6 +187,16 @@ const SettingsModalContent = ({ user, loading, onClose }) => {
 
           <div className="settings-group">
             <h3 className="ty-title settings-group-title">Apariencia</h3>
+            <div className="settings-field">
+              <label className="ty-caption settings-label">Nombre del espacio de trabajo</label>
+              <input
+                className="settings-input"
+                type="text"
+                value={workspaceName}
+                onChange={(e) => handleWorkspaceName(e.target.value)}
+                required
+              />
+            </div>
             <div className="settings-theme-options">
               <button
                 className={`settings-theme-option ${theme === "light" ? "active" : ""}`}
@@ -261,12 +286,12 @@ const SettingsModalContent = ({ user, loading, onClose }) => {
   );
 };
 
-const SettingsModal = ({ isOpen, onClose }) => {
+const SettingsModal = ({ isOpen, onClose, onWorkspaceNameChange }) => {
   const { user, loading } = useSelector((state) => state.auth);
 
   if (!isOpen) return null;
 
-  return <SettingsModalContent user={user} loading={loading} onClose={onClose} />;
+  return <SettingsModalContent user={user} loading={loading} onClose={onClose} onWorkspaceNameChange={onWorkspaceNameChange} />;
 };
 
 export default SettingsModal;

@@ -140,9 +140,9 @@ function AppLayout() {
   }, []);
 
   const handleCollectionUpdate = useCallback((updatedCollection) => {
-    setCollectionRefreshKey((k) => k + 1);
     if (updatedCollection) {
       setActiveCollection(updatedCollection);
+      setCollectionRefreshKey((k) => k + 1);
     }
   }, []);
 
@@ -161,6 +161,7 @@ function AppLayout() {
         onToggleSidebar={toggleSidebar}
         onNoteChange={() => setNoteRefreshKey(k => k + 1)}
         activeCollection={activeCollection}
+        onCollectionUpdate={activeCollection}
       />
       {!sidebarOpen && (
         <button
@@ -183,7 +184,7 @@ function AppLayout() {
         </main>
       ) : isLibrary ? (
         <main className="editor-area" style={{ flex: 1, minWidth: 0 }}>
-          <Library noteRefreshKey={noteRefreshKey} />
+          <Library noteRefreshKey={noteRefreshKey} onCollectionCreated={() => setCollectionRefreshKey(k => k + 1)} />
         </main>
       ) : isCollectionView ? (
         <main className="editor-area" style={{ flex: 1, minWidth: 0 }}>

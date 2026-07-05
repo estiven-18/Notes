@@ -110,7 +110,7 @@ const CollectionView = ({ onCollectionUpdate }) => {
   return (
     <div className="library-page">
       <div className="collection-hero">
-        <div className="editor-title-area">
+        <div className={`editor-title-area${collection.emoji ? ' has-emoji' : ''}`}>
           <div className="editor-title-tools">
             <EmojiPicker currentEmoji={collection.emoji} onSelect={handleEmojiSelect} />
           </div>
@@ -139,7 +139,11 @@ const CollectionView = ({ onCollectionUpdate }) => {
       <div className="library-table-wrapper">
         {notes.length === 0 ? (
           <div className="library-empty">
-            <div className="library-empty-icon">📄</div>
+            <div className="library-empty-icon">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="#c8c8c6" width="48" height="48">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 12.75V12A2.25 2.25 0 0 1 4.5 9.75h15A2.25 2.25 0 0 1 21.75 12v.75m-8.69-6.44-2.12-2.12a1.5 1.5 0 0 0-1.061-.44H4.5A2.25 2.25 0 0 0 2.25 6v12a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9a2.25 2.25 0 0 0-2.25-2.25h-5.379a1.5 1.5 0 0 1-1.06-.44Z" />
+              </svg>
+            </div>
             <p className="library-empty-title">No hay páginas en esta colección</p>
             <p className="library-empty-sub">Crea una nueva página para empezar.</p>
           </div>
@@ -147,34 +151,27 @@ const CollectionView = ({ onCollectionUpdate }) => {
           <table className="library-table">
             <thead>
               <tr>
-                <th className="library-th">
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" width="14" height="14">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
-                  </svg>
-                  Nombre
-                </th>
-                <th className="library-th">Creador</th>
+                <th className="library-th">Nombre de página</th>
                 <th className="library-th">Última edición</th>
                 <th className="library-th">Estado</th>
               </tr>
             </thead>
             <tbody>
               {notes.map((note) => (
-                <tr key={note._id} className="library-row">
+                <tr key={note._id} className="library-row" onClick={() => window.location.href = `/note/${note._id}`} style={{ cursor: "pointer" }}>
                   <td className="library-td library-note-name">
-                    <a href={`/note/${note._id}`} className="library-note-link">
+                    <span className="library-note-link">
                       {note.emoji && <span className="library-note-emoji">{note.emoji}</span>}
                       {note.title || "Sin título"}
-                    </a>
+                    </span>
                   </td>
-                  <td className="library-td">{note.user?.name || "—"}</td>
                   <td className="library-td library-time">{getRelativeTime(note.updatedAt)}</td>
                   <td className="library-td">
                     <div className="library-badges">
                       {note.isPublic && <span className="library-badge library-badge-public">Pública</span>}
                       {(note.source === "shared" || note.source === "shared-collection" || (note.sharedWith && note.sharedWith.length > 0) || (collection.sharedWith && collection.sharedWith.length > 0)) && <span className="library-badge library-badge-shared">Compartida</span>}
                       {!note.isPublic && !(note.source === "shared" || note.source === "shared-collection" || (note.sharedWith && note.sharedWith.length > 0) || (collection.sharedWith && collection.sharedWith.length > 0)) && <span className="library-badge library-badge-private">Privada</span>}
-                      {note.metadata?.isFavorite && <span className="library-badge library-badge-fav">⭐</span>}
+                      {note.metadata?.isFavorite && <span className="library-badge library-badge-fav">⭐ Favorita</span>}
                     </div>
                   </td>
                 </tr>

@@ -1,26 +1,26 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import {
-  getAllNotes,
+  getCollections,
+  getSharedCollections,
   createCollection,
 } from "../services/api";
 
 
 const tabs = [
-  { id: "all", label: "Todas", icon: "📄" },
-  { id: "favorites", label: "Favoritas", icon: "⭐" },
-  { id: "shared", label: "Compartidas", icon: "👥" },
-  { id: "private", label: "Privadas", icon: "🔒" },
+  { id: "all", label: "Recents" },
+  { id: "favorites", label: "Favorites" },
+  { id: "shared", label: "Shared" },
+  { id: "private", label: "Private" },
+  { id: "public", label: "Public" },
 ];
 
-const Library = ({ noteRefreshKey }) => {
+const Library = ({ noteRefreshKey, onCollectionCreated }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const [activeTab, setActiveTab] = useState("all");
-  const [notes, setNotes] = useState([]);
+  const [collections, setCollections] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [showCreateModal, setShowCreateModal] = useState(false);
-  const [newCollectionName, setNewCollectionName] = useState("");
   const [now, setNow] = useState(() => Date.now());
 
   useEffect(() => {
@@ -33,8 +33,15 @@ const Library = ({ noteRefreshKey }) => {
     const load = async () => {
       setLoading(true);
       try {
-        const allNotes = await getAllNotes();
-        if (!cancelled) setNotes(allNotes || []);
+        const [allCols, sharedCols] = await Promise.all([
+          getCollections(),
+          getSharedCollections().catch(() => []),
+        ]);
+        const merged = [...(allCols || [])];
+        (sharedCols || []).forEach(sc => {
+          if (!merged.find(c => c._id === sc._id)) merged.push({ ...sc, _sharedWithMe: true });
+        });
+        if (!cancelled) setCollections(merged);
       } catch (err) {
         console.error("Error loading library:", err);
       } finally {
@@ -45,38 +52,26 @@ const Library = ({ noteRefreshKey }) => {
     return () => { cancelled = true; };
   }, [location.pathname, noteRefreshKey]);
 
-  const getFilteredNotes = () => {
+  const getFilteredCollections = () => {
     switch (activeTab) {
       case "favorites":
-        return notes.filter((n) => n.metadata?.isFavorite);
+        return collections.filter((c) => c.isFavorite);
       case "shared":
-        return notes.filter(
-          (n) => n.source === "shared" || n.source === "shared-collection" || (n.sharedWith && n.sharedWith.length > 0) || (n.collectionId?.sharedWith && n.collectionId.sharedWith.length > 0)
-        );
+        return collections.filter((c) => c._sharedWithMe || (c.sharedWith && c.sharedWith.length > 0));
       case "private":
-        return notes.filter(
-          (n) => !n.isPublic && !(n.source === "shared" || n.source === "shared-collection") && !(n.sharedWith && n.sharedWith.length > 0) && !(n.collectionId?.sharedWith && n.collectionId.sharedWith.length > 0)
+        return collections.filter(
+          (c) => !c.isPublic && !c._sharedWithMe && !(c.sharedWith && c.sharedWith.length > 0)
         );
+      case "public":
+        return collections.filter((c) => c.isPublic);
       case "all":
-        return notes;
+        return collections;
       default:
-        return notes;
+        return collections;
     }
   };
 
-  const filteredNotes = getFilteredNotes();
-
-  const handleCreateCollection = async () => {
-    if (!newCollectionName.trim()) return;
-    try {
-      const col = await createCollection(newCollectionName.trim());
-      setNewCollectionName("");
-      setShowCreateModal(false);
-      navigate(`/collection/${col._id}`);
-    } catch (err) {
-      alert("Error al crear colección: " + err.message);
-    }
-  };
+  const filteredCollections = getFilteredCollections();
 
   const getRelativeTime = (timestamp) => {
     if (!timestamp) return "";
@@ -95,10 +90,18 @@ const Library = ({ noteRefreshKey }) => {
   return (
     <div className="library-page">
       <header className="library-header">
-        <h1 className="library-title">Library</h1>
+        <h1 className="library-title">Biblioteca</h1>
         <button
           className="library-new-page-btn"
-          onClick={() => setShowCreateModal(true)}
+          onClick={async () => {
+            try {
+              const col = await createCollection('');
+              onCollectionCreated?.();
+              navigate(`/collection/${col._id}`);
+            } catch (err) {
+              alert("Error al crear colección: " + err.message);
+            }
+          }}
         >
           Nueva colección
         </button>
@@ -111,30 +114,55 @@ const Library = ({ noteRefreshKey }) => {
             className={`library-tab ${activeTab === tab.id ? "active" : ""}`}
             onClick={() => setActiveTab(tab.id)}
           >
-            <span className="library-tab-icon">{tab.icon}</span>
+            {tab.id === "all" && (
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="10"/>
+                <polyline points="12 6 12 12 16 14"/>
+              </svg>
+            )}
+            {tab.id === "favorites" && (
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+              </svg>
+            )}
+            {tab.id === "shared" && (
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
+                <circle cx="9" cy="7" r="4"/>
+                <path d="M22 21v-2a4 4 0 0 0-3-3.87"/>
+                <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+              </svg>
+            )}
+            {tab.id === "private" && (
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+              </svg>
+            )}
+            {tab.id === "public" && (
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="10"/>
+                <line x1="2" y1="12" x2="22" y2="12"/>
+                <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+              </svg>
+            )}
             {tab.label}
           </button>
         ))}
       </nav>
 
-      <div className="library-toolbar">
-        <div className="library-toolbar-right">
-          <button className="library-toolbar-icon" title="Buscar">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" width="16" height="16">
-              <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
-            </svg>
-          </button>
-        </div>
-      </div>
-
       {loading ? (
         <div className="library-loading">Cargando...</div>
-      ) : filteredNotes.length === 0 ? (
+      ) : filteredCollections.length === 0 ? (
         <div className="library-empty">
-          <div className="library-empty-icon">📄</div>
-          <p className="library-empty-title">No hay páginas aquí</p>
+          <div className="library-empty-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="#c8c8c6" width="48" height="48">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 12.75V12A2.25 2.25 0 0 1 4.5 9.75h15A2.25 2.25 0 0 1 21.75 12v.75m-8.69-6.44-2.12-2.12a1.5 1.5 0 0 0-1.061-.44H4.5A2.25 2.25 0 0 0 2.25 6v12a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9a2.25 2.25 0 0 0-2.25-2.25h-5.379a1.5 1.5 0 0 1-1.06-.44Z" />
+            </svg>
+          </div>
+          <p className="library-empty-title">No hay colecciones aquí</p>
           <p className="library-empty-sub">
-            Crea una nueva página para empezar.
+            Crea una nueva colección para empezar.
           </p>
         </div>
       ) : (
@@ -142,77 +170,38 @@ const Library = ({ noteRefreshKey }) => {
           <table className="library-table">
             <thead>
               <tr>
-                <th className="library-th">
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" width="14" height="14">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
-                  </svg>
-                  Nombre
-                </th>
-                <th className="library-th">Creador</th>
-                <th className="library-th">Colección</th>
+                <th className="library-th">Nombre de página</th>
                 <th className="library-th">Última edición</th>
                 <th className="library-th">Estado</th>
               </tr>
             </thead>
             <tbody>
-              {filteredNotes.map((note) => (
+              {filteredCollections.map((col) => (
                 <tr
-                  key={note._id}
+                  key={col._id}
                   className="library-row"
+                  onClick={() => navigate(`/collection/${col._id}`)}
+                  style={{ cursor: "pointer" }}
                 >
                   <td className="library-td library-note-name">
-                    <span
-                      className="library-note-link"
-                      onClick={() => navigate(`/note/${note._id}`)}
-                      style={{ cursor: "pointer" }}
-                    >
-                      {note.emoji && <span className="library-note-emoji">{note.emoji}</span>}
-                      {note.title || "Sin título"}
+                    <span className="library-note-link">
+                      {col.emoji && <span className="library-note-emoji">{col.emoji}</span>}
+                      {col.name || "Sin título"}
                     </span>
                   </td>
-                  <td className="library-td">{note.user?.name || "—"}</td>
-                  <td className="library-td">
-                    {note.collectionId?.name ? (
-                      <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                        {note.collectionId.emoji && <span>{note.collectionId.emoji}</span>}
-                        {note.collectionId.name}
-                      </span>
-                    ) : "Sin colección"}
-                  </td>
-                  <td className="library-td library-time">{getRelativeTime(note.updatedAt)}</td>
+                  <td className="library-td library-time">{getRelativeTime(col.updatedAt)}</td>
                   <td className="library-td">
                     <div className="library-badges">
-                      {note.isPublic && <span className="library-badge library-badge-public">Pública</span>}
-                      {(note.source === "shared" || note.source === "shared-collection" || (note.sharedWith && note.sharedWith.length > 0) || (note.collectionId?.sharedWith && note.collectionId.sharedWith.length > 0)) && <span className="library-badge library-badge-shared">Compartida</span>}
-                      {!note.isPublic && !(note.source === "shared" || note.source === "shared-collection" || (note.sharedWith && note.sharedWith.length > 0) || (note.collectionId?.sharedWith && note.collectionId.sharedWith.length > 0)) && <span className="library-badge library-badge-private">Privada</span>}
-                      {note.metadata?.isFavorite && <span className="library-badge library-badge-fav">⭐</span>}
+                      {col.isPublic && <span className="library-badge library-badge-public">Pública</span>}
+                      {(col._sharedWithMe || (col.sharedWith && col.sharedWith.length > 0)) && <span className="library-badge library-badge-shared">Compartida</span>}
+                      {!col.isPublic && !(col._sharedWithMe || (col.sharedWith && col.sharedWith.length > 0)) && <span className="library-badge library-badge-private">Privada</span>}
+                      {col.isFavorite && <span className="library-badge library-badge-fav">⭐ Favorita</span>}
                     </div>
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
-        </div>
-      )}
-
-      {showCreateModal && (
-        <div className="modal-overlay" onClick={() => setShowCreateModal(false)}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <h3 style={{ margin: "0 0 12px", fontSize: 16, fontWeight: 600 }}>Nueva colección</h3>
-            <input
-              className="modal-input"
-              type="text"
-              placeholder="Nombre de la colección"
-              value={newCollectionName}
-              onChange={(e) => setNewCollectionName(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleCreateCollection()}
-              autoFocus
-            />
-            <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 16 }}>
-              <button className="modal-cancel-btn" onClick={() => setShowCreateModal(false)}>Cancelar</button>
-              <button className="modal-confirm-btn" onClick={handleCreateCollection}>Crear</button>
-            </div>
-          </div>
         </div>
       )}
     </div>
