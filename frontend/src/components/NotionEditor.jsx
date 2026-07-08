@@ -41,15 +41,28 @@ const styles = {
   },
 };
 
-const NotionEditor = ({ noteId, onTitleChange, onEmojiChange, onFavoriteToggle, onShareChange, sidebarOpen, onToggleSidebar }) => {
+const NotionEditor = ({ noteId, onTitleChange, onEmojiChange, onFavoriteToggle, onShareChange, sidebarOpen, onToggleSidebar, onCreateCollection }) => {
   const currentUser = useSelector((state) => state.auth.user);
 
   if (!noteId) {
     return (
       <div className="editor-empty">
+        <img
+          src="/images/reading.png"
+          alt=""
+          className="editor-empty-img editor-empty-img--light"
+        />
+        <img
+          src="/images/reading-dark.png"
+          alt=""
+          className="editor-empty-img editor-empty-img--dark"
+        />
         <div className="editor-empty-text">
           Selecciona una nota de la barra lateral o crea una nueva
         </div>
+        <button className="editor-empty-btn" onClick={onCreateCollection}>
+          Nueva colección
+        </button>
       </div>
     );
   }
@@ -89,10 +102,16 @@ const EditorInner = ({ noteId, currentUser, onTitleChange, onEmojiChange, onFavo
   const [coverUrl, setCoverUrl] = useState(null);
   const [coverPosition, setCoverPosition] = useState(0);
   const [isExportingPdf, setIsExportingPdf] = useState(false);
+  const [noteInfo, setNoteInfo] = useState(null);
   const titleTimeoutRef = useRef(null);
   const isSavingRef = useRef(false);
   const titleInputRef = useRef(null);
   const loadedContentRef = useRef(null);
+
+  const markSaved = useCallback(() => {
+    setLastSaved(Date.now());
+    setNoteInfo((prev) => prev ? { ...prev, lastUpdatedBy: currentUser, updatedAt: new Date().toISOString() } : prev);
+  }, [currentUser]);
 
   const WS_URL = import.meta.env.VITE_WS_URL || `http://localhost:3001`;
 
@@ -145,7 +164,7 @@ const EditorInner = ({ noteId, currentUser, onTitleChange, onEmojiChange, onFavo
     try {
       await updateNoteById(noteId, { content: doc });
       loadedContentRef.current = contentStr;
-      setLastSaved(Date.now());
+      markSaved();
     } catch (err) {
       if (err.message?.includes('No tienes permisos')) {
         try {
@@ -159,7 +178,7 @@ const EditorInner = ({ noteId, currentUser, onTitleChange, onEmojiChange, onFavo
     } finally {
       isSavingRef.current = false;
     }
-  }, [noteId, editor]);
+  }, [noteId, editor, markSaved]);
 
   const exportToPdf = useCallback(async () => {
     if (!editor || isExportingPdf) return;
@@ -222,6 +241,7 @@ const EditorInner = ({ noteId, currentUser, onTitleChange, onEmojiChange, onFavo
           setNoteSharedWith(shared);
           setUserRole(role);
           setLastSaved(new Date(note.updatedAt).getTime());
+          setNoteInfo({ author: note.user, lastUpdatedBy: note.user, user: note.user, createdAt: note.createdAt, updatedAt: note.updatedAt });
         });
         if (note.content && note.content.length > 0) {
           editor.replaceBlocks(editor.document, note.content);
@@ -265,7 +285,7 @@ const EditorInner = ({ noteId, currentUser, onTitleChange, onEmojiChange, onFavo
       try {
         await updateNoteById(noteId, { title: finalTitle });
         setTitle(finalTitle === "Sin título" ? "" : finalTitle);
-        setLastSaved(Date.now());
+        markSaved();
       } catch (err) {
         console.error("Error al guardar título:", err);
         if (err.message?.includes('No tienes permisos')) {
@@ -283,7 +303,7 @@ const EditorInner = ({ noteId, currentUser, onTitleChange, onEmojiChange, onFavo
   const handleCoverChange = (url, position) => {
     setCoverUrl(url);
     setCoverPosition(position || 0);
-    setLastSaved(Date.now());
+    markSaved();
   };
 
   const handleEmojiSelect = async (newEmoji) => {
@@ -291,7 +311,7 @@ const EditorInner = ({ noteId, currentUser, onTitleChange, onEmojiChange, onFavo
     if (onEmojiChange) onEmojiChange(noteId, newEmoji);
     try {
       await updateNoteById(noteId, { emoji: newEmoji });
-      setLastSaved(Date.now());
+      markSaved();
     } catch (err) {
       console.error("Error al guardar emoji:", err);
       if (err.message?.includes('No tienes permisos')) {
@@ -401,38 +421,18 @@ const EditorInner = ({ noteId, currentUser, onTitleChange, onEmojiChange, onFavo
           </span>
         </div>
         <div className="editor-topbar-right">
-          <SavingIndicator lastSaved={lastSaved} />
-          <button
-            className={`editor-star-btn ${isFavorite ? "favorited" : ""}`}
-            onClick={handleFavoriteClick}
-            title={isFavorite ? "Quitar de favoritos" : "Añadir a favoritos"}
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" fill={isFavorite ? "currentColor" : "none"} viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" width="16" height="16">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M11.48 3.499a.562.562 0 0 1 1.04 0l2.125 5.111a.563.563 0 0 0 .475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 0 0-.182.557l1.285 5.385a.562.562 0 0 1-.84.61l-4.725-2.885a.562.562 0 0 0-.586 0L6.982 20.54a.562.562 0 0 1-.84-.61l1.285-5.386a.562.562 0 0 0-.182-.557l-4.204-3.602a.562.562 0 0 1 .321-.988l5.518-.442a.563.563 0 0 0 .475-.345L11.48 3.5Z" />
-            </svg>
-          </button>
-          <button
-            className="editor-star-btn"
-            onClick={exportToPdf}
-            disabled={isExportingPdf}
-            title="Exportar a PDF"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" width="16" height="16">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
-            </svg>
-            {isExportingPdf && <span style={{marginLeft: 4}}>Exportando...</span>}
-          </button>
+          <SavingIndicator lastSaved={lastSaved} note={noteInfo} />
           {userRole === 'owner' && (
             <span className="share-dropdown-wrapper">
               <button
                 className="share-dropdown-btn"
                 onClick={() => setShowShareDropdown(!showShareDropdown)}
               >
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" width="16" height="16">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="#000" width="16" height="16">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M3 8.25V18a2.25 2.25 0 0 0 2.25 2.25h13.5A2.25 2.25 0 0 0 21 18V8.25m-18 0V6a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 6v2.25m-18 0h18M5.25 6h.008v.008H5.25V6ZM7.5 6h.008v.008H7.5V6Zm2.25 0h.008v.008H9.75V6Z" />
                 </svg>
                 Compartir
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" width="12" height="12">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="#000" width="12" height="12">
                   <path strokeLinecap="round" strokeLinejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
                 </svg>
               </button>
@@ -487,7 +487,7 @@ const EditorInner = ({ noteId, currentUser, onTitleChange, onEmojiChange, onFavo
                       </div>
                       <div className="share-dropdown-users">
                         <div className="share-dropdown-user">
-                          <span className="share-dropdown-avatar" style={{ backgroundColor: '#e8e8e6', color: '#999' }}>
+                          <span className="share-dropdown-avatar" style={{ backgroundColor: '#e8e8e6', color: '#555' }}>
                             {(currentUser?.name || '?').charAt(0).toUpperCase()}
                           </span>
                           <div className="share-dropdown-user-info">
@@ -500,7 +500,7 @@ const EditorInner = ({ noteId, currentUser, onTitleChange, onEmojiChange, onFavo
                           const user = s.user || s;
                           return (
                             <div key={user._id} className="share-dropdown-user">
-                              <span className="share-dropdown-avatar" style={{ backgroundColor: `hsl(${(user.name || '').charCodeAt(0) * 7 % 360}, 50%, 50%)` }}>
+                              <span className="share-dropdown-avatar" style={{ backgroundColor: '#e8e8e6', color: '#555' }}>
                                 {(user.name || '?').charAt(0).toUpperCase()}
                               </span>
                               <div className="share-dropdown-user-info">
@@ -592,6 +592,26 @@ const EditorInner = ({ noteId, currentUser, onTitleChange, onEmojiChange, onFavo
               )}
             </span>
           )}
+          <button
+            className={`editor-star-btn ${isFavorite ? "favorited" : ""}`}
+            onClick={handleFavoriteClick}
+            title={isFavorite ? "Quitar de favoritos" : "Añadir a favoritos"}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" fill={isFavorite ? "currentColor" : "none"} viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" width="16" height="16">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M11.48 3.499a.562.562 0 0 1 1.04 0l2.125 5.111a.563.563 0 0 0 .475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 0 0-.182.557l1.285 5.385a.562.562 0 0 1-.84.61l-4.725-2.885a.562.562 0 0 0-.586 0L6.982 20.54a.562.562 0 0 1-.84-.61l1.285-5.386a.562.562 0 0 0-.182-.557l-4.204-3.602a.562.562 0 0 1 .321-.988l5.518-.442a.563.563 0 0 0 .475-.345L11.48 3.5Z" />
+            </svg>
+          </button>
+          <button
+            className="editor-star-btn"
+            onClick={exportToPdf}
+            disabled={isExportingPdf}
+            title="Exportar a PDF"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="#000" width="16" height="16">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+            </svg>
+            {isExportingPdf && <span style={{marginLeft: 4}}>Exportando...</span>}
+          </button>
         </div>
       </header>
 

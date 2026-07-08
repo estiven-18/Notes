@@ -323,7 +323,8 @@ const Sidebar = ({ activeNote, onSelectNote, onAddCollection, favoriteRefreshKey
   const handleCreateCollection = async () => {
     try {
       const col = await createCollection('');
-      await refreshCollections();
+      setCollections((prev) => [...prev, { ...col, notes: [] }]);
+      setPrivadasOpen(true);
       navigate(`/collection/${col._id}`);
       if (onAddCollection) onAddCollection();
     } catch (err) {
@@ -334,8 +335,10 @@ const Sidebar = ({ activeNote, onSelectNote, onAddCollection, favoriteRefreshKey
   const handleCreateNote = async (colId) => {
     try {
       const note = await createNote(colId, 'Sin título');
-      const notes = await getNotesByCollection(colId);
-      setNotesMap((prev) => ({ ...prev, [colId]: notes }));
+      setNotesMap((prev) => ({ ...prev, [colId]: [...(prev[colId] || []), note] }));
+      setExpanded((prev) => ({ ...prev, [colId]: true }));
+      setExpandedPublicas((prev) => ({ ...prev, [colId]: true }));
+      setExpandedPrivadas((prev) => ({ ...prev, [colId]: true }));
       onSelectNote({ ...note });
       onNoteChange?.();
     } catch (err) {

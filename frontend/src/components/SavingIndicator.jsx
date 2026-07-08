@@ -47,21 +47,43 @@ function getRelativeTime(timestamp) {
     : `hace ${years} años y ${remainingMonths} ${remainingMonths === 1 ? "mes" : "meses"}`;
 }
 
-const SavingIndicator = ({ lastSaved }) => {
+const SavingIndicator = ({ lastSaved, note }) => {
   const [, tick] = useState(0);
+  const [showActivity, setShowActivity] = useState(false);
 
   useEffect(() => {
     if (!lastSaved) return;
-    const id = setInterval(() => tick(n => n + 1), 30000);
+    const id = setInterval(() => tick(n => n + 1), 10000);
     return () => clearInterval(id);
   }, [lastSaved]);
 
   if (!lastSaved) return null;
 
+  const authorName = note?.author?.name || note?.user?.name || "Desconocido";
+  const updaterName = note?.lastUpdatedBy?.name || note?.user?.name || "Desconocido";
+  const createdTime = note?.createdAt ? getRelativeTime(new Date(note.createdAt).getTime()) : "desconocido";
+  const updatedTime = note?.updatedAt ? getRelativeTime(new Date(note.updatedAt).getTime()) : "desconocido";
+
   return (
-    <div className="flex items-center space-x-1.5 text-gray-500">
-      <span className="h-2 w-2 rounded-full bg-green-500"></span>
-      <span className="text-xs">Editado {getRelativeTime(lastSaved)}</span>
+    <div
+      className="saving-indicator-wrapper"
+      onMouseEnter={() => setShowActivity(true)}
+      onMouseLeave={() => setShowActivity(false)}
+    >
+      <span className="text-xs saving-indicator-text">Última edición {getRelativeTime(lastSaved)}</span>
+      {showActivity && (
+        <div className="saving-indicator-dropdown">
+          <div className="saving-indicator-dropdown-title">Actividad</div>
+          <div className="saving-indicator-dropdown-item">
+            <span>Editada por <strong>{updaterName}</strong></span>
+            <span className="saving-indicator-dropdown-time">{updatedTime}</span>
+          </div>
+          <div className="saving-indicator-dropdown-item">
+            <span>Creada por <strong>{authorName}</strong></span>
+            <span className="saving-indicator-dropdown-time">{createdTime}</span>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

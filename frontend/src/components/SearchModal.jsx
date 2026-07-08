@@ -94,6 +94,21 @@ const SearchModalContent = ({ onClose, onSelectNote, onSelectCollection }) => {
           <div className="search-modal-body">
             <div className="search-modal-results">
               {loading && <div className="search-modal-loading">Buscando...</div>}
+              {!loading && !query.trim() && (
+                <div className="search-modal-placeholder">
+                  <img
+                    src="/images/reading.png"
+                    alt=""
+                    className="search-modal-placeholder-img search-modal-placeholder-img--light"
+                  />
+                  <img
+                    src="/images/reading-dark.png"
+                    alt=""
+                    className="search-modal-placeholder-img search-modal-placeholder-img--dark"
+                  />
+                  <p className="search-modal-placeholder-text">Escribe para buscar notas y colecciones</p>
+                </div>
+              )}
               {!loading && query.trim() && allItems.length === 0 && (
                 <div className="search-modal-empty">Sin resultados</div>
               )}

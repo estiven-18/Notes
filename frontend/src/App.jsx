@@ -12,7 +12,7 @@ import Library from './pages/Library';
 import CollectionView from './pages/CollectionView';
 import ProtectedRoute from './components/ProtectedRoute';
 import { verifyToken } from './store/authSlice';
-import { getNoteById } from './services/api';
+import { getNoteById, createCollection } from './services/api';
 
 function AppLayout() {
   const location = useLocation();
@@ -146,6 +146,17 @@ function AppLayout() {
     }
   }, []);
 
+  const handleCreateCollection = useCallback(async () => {
+    try {
+      const col = await createCollection('');
+      setCollectionRefreshKey((k) => k + 1);
+      navigate(`/collection/${col._id}`);
+      return col;
+    } catch (err) {
+      console.error('Error al crear colección:', err);
+    }
+  }, [navigate]);
+
   return (
     <div className={`app-layout${sidebarOpen ? '' : ' sidebar-collapsed'}`}>
       <Sidebar
@@ -200,6 +211,7 @@ function AppLayout() {
             onShareChange={handleShareChange}
             sidebarOpen={sidebarOpen}
             onToggleSidebar={toggleSidebar}
+            onCreateCollection={handleCreateCollection}
           />
         </>
       )}

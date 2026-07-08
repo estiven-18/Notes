@@ -127,7 +127,7 @@ export const permanentDeleteDocument = async (req, res) => {
 export const getNoteById = async (req, res) => {
   try {
     const { id } = req.params;
-    const note = await Document.findById(id).populate('deletedBy', 'name').populate('sharedWith.user', 'name email');
+    const note = await Document.findById(id).populate('user', 'name email').populate('deletedBy', 'name').populate('sharedWith.user', 'name email');
     if (!note) {
       return res.status(404).json({ success: false, message: 'Nota no encontrada' });
     }
