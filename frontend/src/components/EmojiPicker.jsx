@@ -1,5 +1,17 @@
 import { useState, useRef, useEffect } from "react";
-import EmojiPickerReact, { EmojiStyle } from "emoji-picker-react";
+import EmojiPickerReact, { EmojiStyle, Categories } from "emoji-picker-react";
+
+const emojiCategories = [
+  { category: Categories.SUGGESTED, name: "Usados recientemente" },
+  { category: Categories.SMILEYS_PEOPLE, name: "Caras y gente" },
+  { category: Categories.ANIMALS_NATURE, name: "Animales y naturaleza" },
+  { category: Categories.FOOD_DRINK, name: "Comida y bebida" },
+  { category: Categories.TRAVEL_PLACES, name: "Viajes y lugares" },
+  { category: Categories.ACTIVITIES, name: "Actividades" },
+  { category: Categories.OBJECTS, name: "Objetos" },
+  { category: Categories.SYMBOLS, name: "Símbolos" },
+  { category: Categories.FLAGS, name: "Banderas" },
+];
 
 const EmojiPicker = ({ currentEmoji, onSelect }) => {
   const [open, setOpen] = useState(false);
@@ -24,10 +36,10 @@ const EmojiPicker = ({ currentEmoji, onSelect }) => {
             setOpen(true);
           }}
         >
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" width="20" height="20">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M15.182 15.182a4.5 4.5 0 0 1-6.364 0M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0ZM9.75 9.75c0 .414-.168.75-.375.75S9 10.164 9 9.75 9.168 9 9.375 9s.375.336.375.75Zm-.375 0h.008v.015h-.008V9.75Zm5.625 0c0 .414-.168.75-.375.75s-.375-.336-.375-.75.168-.75.375-.75.375.336.375.75Zm-.375 0h.008v.015h-.008V9.75Z" />
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+            <path fillRule="evenodd" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25Zm-2.625 6c-.54 0-.828.419-.936.634a1.96 1.96 0 0 0-.189.866c0 .298.059.605.189.866.108.215.395.634.936.634.54 0 .828-.419.936-.634.13-.26.189-.568.189-.866 0-.298-.059-.605-.189-.866-.108-.215-.395-.634-.936-.634Zm4.314.634c.108-.215.395-.634.936-.634.54 0 .828.419.936.634.13.26.189.568.189.866 0 .298-.059.605-.189.866-.108.215-.395.634-.936.634-.54 0-.828-.419-.936-.634a1.96 1.96 0 0 1-.189-.866c0-.298.059-.605.189-.866Zm2.023 6.828a.75.75 0 1 0-1.06-1.06 3.75 3.75 0 0 1-5.304 0 .75.75 0 0 0-1.06 1.06 5.25 5.25 0 0 0 7.424 0Z" clipRule="evenodd" />
           </svg>
-          Agregar emoji
+          Agregar un ícono
         </button>
         {open && (
           <div className="emoji-popover">
@@ -41,6 +53,8 @@ const EmojiPicker = ({ currentEmoji, onSelect }) => {
               searchPlaceholder="Buscar emoji..."
               width="100%"
               height={350}
+              categories={emojiCategories}
+              suggestedEmojisMode={null}
             />
           </div>
         )}
@@ -73,6 +87,8 @@ const EmojiPicker = ({ currentEmoji, onSelect }) => {
             searchPlaceholder="Buscar emoji..."
             width="100%"
             height={350}
+            categories={emojiCategories}
+            suggestedEmojisMode={null}
           />
           <button
             className="emoji-remove"

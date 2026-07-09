@@ -149,14 +149,14 @@ const CollectionView = ({ onCollectionUpdate }) => {
               alt=""
               className="library-empty-img library-empty-img--dark"
             />
-            <p className="library-empty-title">No hay páginas en esta colección</p>
-            <p className="library-empty-sub">Crea una nueva página para empezar.</p>
+            <p className="library-empty-title">No hay notas en esta colección</p>
+            <p className="library-empty-sub">Crea una nueva nota para empezar.</p>
           </div>
         ) : (
           <table className="library-table">
             <thead>
               <tr>
-                <th className="library-th">Nombre de página</th>
+                <th className="library-th">Nombre de nota</th>
                 <th className="library-th">Última edición</th>
                 <th className="library-th">Estado</th>
               </tr>

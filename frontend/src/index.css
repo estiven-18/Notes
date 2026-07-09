@@ -1548,10 +1548,13 @@ body {
 
 .editor-title-area {
   position: relative;
+  text-align: left;
 }
 
-.editor-title-area:hover .emoji-add-btn {
+.editor-title-area:hover .emoji-add-btn,
+.editor-title-area:hover .cover-title-btn {
   opacity: 1;
+  pointer-events: auto;
 }
 
 .editor-title-viewonly {
@@ -1587,7 +1590,7 @@ body {
   line-height: 1.3;
   color: var(--color-ink);
   padding: 0;
-  margin-top: 16px;
+  margin-top: 4px;
   margin-bottom: 12px;
   background: transparent;
 }
@@ -1614,54 +1617,54 @@ body {
   z-index: 5;
 }
 
-.emoji-add-btn {
+.editor-title-tools .emoji-wrapper-empty {
+  position: static;
+}
+
+.emoji-add-btn,
+.cover-title-btn {
   border: none;
   background: transparent;
-  font-size: 15px;
+  font-size: 14px;
   cursor: pointer;
-  padding: 2px 6px;
-  border-radius: 8px;
+  padding: 6px 12px;
+  border-radius: 6px;
   color: var(--color-ink-faint);
-  transition: background 0.15s, color 0.15s, opacity 0.15s;
+  transition: background 0.15s, color 0.15s;
   line-height: 1;
   opacity: 0;
   pointer-events: none;
   display: inline-flex;
   align-items: center;
-  gap: 3px;
+  gap: 6px;
 }
 
-.editor-title-area:hover .emoji-add-btn {
-  pointer-events: auto;
-}
-
-.emoji-add-btn:hover {
+.emoji-add-btn:hover,
+.cover-title-btn:hover {
   background: var(--color-gray-100);
   color: var(--color-ink-muted);
+}
+
+.emoji-add-btn svg,
+.cover-title-btn svg {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
 }
 
 .emoji-picker-wrapper {
   position: relative;
   display: inline-block;
-  margin-bottom: 4px;
 }
 
 .emoji-trigger {
-  border: none;
-  background: transparent;
+  all: unset;
   font-size: 90px;
   line-height: 1;
   cursor: pointer;
-  padding: 4px;
-  border-radius: 8px;
-  transition: background 0.15s;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.emoji-trigger:hover {
-  background: var(--color-gray-100);
+  display: block;
+  margin-bottom: 4px;
+  padding: 0;
 }
 
 .emoji-popover {
@@ -1676,6 +1679,10 @@ body {
   z-index: 50;
   overflow: hidden;
   min-width: 300px;
+}
+
+.emoji-popover div[style*="display: flex"][style*="align-items: center"][style*="padding"] {
+  display: none !important;
 }
 
 .emoji-remove {
@@ -1722,10 +1729,28 @@ body {
 
 .notion-editor .bn-editor {
   background: transparent !important;
+  padding-left: 0 !important;
+  margin-left: 0 !important;
 }
 
 .notion-editor .bn-container {
   background: transparent !important;
+  padding-left: 0 !important;
+  margin-left: 0 !important;
+}
+
+.notion-editor .bn-block-group {
+  margin-left: 0 !important;
+  padding-left: 0 !important;
+}
+
+.notion-editor .bn-block-outer {
+  margin-left: 0 !important;
+  padding-left: 0 !important;
+}
+
+.notion-editor .bn-block-content {
+  padding-left: 0 !important;
 }
 
 /* COVER - compact button */
@@ -1734,51 +1759,39 @@ body {
   display: inline-flex;
 }
 
-.cover-title-btn {
-  border: none;
-  background: transparent;
-  cursor: pointer;
-  padding: 2px 6px;
-  font-size: 15px;
-  color: var(--color-ink-faint);
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-  border-radius: 8px;
-  transition: color 0.15s, background 0.15s, opacity 0.15s;
-  opacity: 0;
-  pointer-events: none;
-}
-
-.editor-title-area:hover .cover-title-btn {
-  opacity: 1;
-  pointer-events: auto;
-}
-
-.cover-title-btn:hover {
-  background: var(--color-gray-100);
-  color: var(--color-ink-muted);
-}
-
 .editor-title-tools {
   display: flex;
-  align-items: center;
-  gap: 10px;
+  align-items: flex-start;
+  justify-content: flex-start;
+  gap: 6px;
   flex-wrap: wrap;
+  margin-top: 8px;
+  margin-bottom: 2px;
 }
 
-.editor-title-tools .emoji-wrapper-empty {
+.editor-title-tools .emoji-picker-wrapper {
+  flex-shrink: 0;
+}
+
+.editor-title-area > .cover-btn-wrap .cover-title-btn {
+  opacity: 1;
+  pointer-events: auto;
+  position: static;
+}
+
+.editor-cover-below {
+  margin-bottom: 4px;
+}
+
+.editor-cover-below .cover-title-btn {
+  opacity: 1;
+  pointer-events: auto;
   position: static;
 }
 
 .editor-title-tools .emoji-add-btn {
   opacity: 0;
   pointer-events: none;
-}
-
-.editor-title-tools:hover .emoji-add-btn {
-  opacity: 1;
-  pointer-events: auto;
 }
 
 .editor-title-tools .emoji-popover {
@@ -1820,7 +1833,7 @@ body {
 
 /* Emoji overlap cover */
 .editor-title-area.has-cover.has-emoji {
-  margin-top: -40px;
+  margin-top: -50px;
 }
 
 .has-cover .editor-emoji-display {
@@ -1835,8 +1848,8 @@ body {
 
 .cover-overlay {
   position: absolute;
-  bottom: 8px;
-  left: 8px;
+  top: 8px;
+  right: 8px;
   display: flex;
   gap: 4px;
 }

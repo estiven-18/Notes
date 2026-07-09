@@ -902,11 +902,11 @@ const Sidebar = ({ activeNote, onSelectNote, onAddCollection, favoriteRefreshKey
                   <nav className="sidebar-nav">
                     {favoriteCollections.map((col) => (
                       <div key={col._id} className="sidebar-collection">
-                        <div
-                          className="sidebar-collection-header"
-                          onClick={() => setExpandedFavCols((prev) => ({ ...prev, [col._id]: !prev[col._id] }))}
-                        >
-                          <span className="sidebar-collection-icon-wrapper">
+                        <div className="sidebar-collection-header">
+                          <span
+                            className="sidebar-collection-icon-wrapper"
+                            onClick={() => navigate(`/collection/${col._id}`)}
+                          >
                             <span className={`sidebar-collection-chevron ${expandedFavCols[col._id] ? "open" : ""}`}>
                               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" width="12" height="12">
                                 <path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
@@ -922,7 +922,10 @@ const Sidebar = ({ activeNote, onSelectNote, onAddCollection, favoriteRefreshKey
                               )}
                             </span>
                           </span>
-                          <span className="sidebar-collection-name">{col.name}</span>
+                          <span
+                            className="sidebar-collection-name"
+                            onClick={() => navigate(`/collection/${col._id}`)}
+                          >{col.name}</span>
                           <button
                             className="sidebar-collection-star favorited"
                             onClick={(e) => handleToggleCollectionFavorite(e, col._id)}

@@ -81,10 +81,7 @@ function AppLayout() {
               }
             : prev,
         );
-      }).catch(() => {
-        setActiveNote(null);
-        localStorage.removeItem('activeNote');
-      });
+      }).catch(() => {});
     }
   }, [displayedActiveNote, isLibrary]);
 
@@ -95,11 +92,11 @@ function AppLayout() {
       setShowTrash(false);
       setActiveNote(note);
       setCollectionRefreshKey((k) => k + 1);
-      if (isLibrary || isCollectionView) {
-        navigate(`/note/${note._id}`);
+      if (note?._id) {
+        navigate(`/note/${note._id}`, { replace: false });
       }
     }
-  }, [isLibrary, isCollectionView, navigate]);
+  }, [navigate]);
 
   const handleTitleChange = useCallback((noteId, newTitle) => {
     setActiveNote((prev) => prev && prev._id === noteId ? { ...prev, title: newTitle } : prev);
