@@ -138,19 +138,20 @@ const CollectionView = ({ onCollectionUpdate }) => {
 
       <div className="library-table-wrapper">
         {notes.length === 0 ? (
-          <div className="library-empty">
+          <div className="library-empty" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-start', paddingTop: 80 }}>
             <img
               src="/images/empty.png"
               alt=""
               className="library-empty-img library-empty-img--light"
+              style={{ maxWidth: 400 }}
             />
             <img
               src="/images/empty-dark.png"
               alt=""
               className="library-empty-img library-empty-img--dark"
+              style={{ maxWidth: 400 }}
             />
-            <p className="library-empty-title">No hay notas en esta colección</p>
-            <p className="library-empty-sub">Crea una nueva nota para empezar.</p>
+            <p className="library-empty-title" style={{ textAlign: 'center', margin: 0, color: '#999', fontWeight: 400, fontSize: 14, lineHeight: 1.5 }}>no hay notas en esta colección.<br/>crea una nueva nota para empezar.</p>
           </div>
         ) : (
           <table className="library-table">

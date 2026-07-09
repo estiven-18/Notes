@@ -4076,7 +4076,7 @@ body {
 
 .library-empty-img {
   display: block;
-  max-width: 320px;
+  max-width: 400px;
   width: 100%;
   border-radius: 8px;
   opacity: 0.9;
