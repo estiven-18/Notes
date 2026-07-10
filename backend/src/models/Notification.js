@@ -21,6 +21,10 @@ const notificationSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: "Collection",
   },
+  document: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Document",
+  },
   role: {
     type: String,
     enum: ["viewer", "editor"],

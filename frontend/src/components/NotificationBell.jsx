@@ -173,14 +173,16 @@ const NotificationBell = ({ onRefresh, isOpen, onToggle, onUnreadCount }) => {
                           {n.type === "share_invitation" ? (
                             <>
                               <strong>{n.from?.name || "Alguien"}</strong>{" "}
-                              te invitó a la colección{" "}
-                              <strong>{n.collection?.name || "sin nombre"}</strong>
+                              te invitó a{" "}
+                              {n.document ? "la nota" : "la colección"}{" "}
+                              <strong>{n.document?.title || n.collection?.name || "sin nombre"}</strong>
                             </>
                           ) : (
                             <>
                               <strong>{n.from?.name || "Alguien"}</strong>{" "}
                               aceptó tu invitación a{" "}
-                              <strong>{n.collection?.name || "sin nombre"}</strong>
+                              {n.document ? "la nota" : "la colección"}{" "}
+                              <strong>{n.document?.title || n.collection?.name || "sin nombre"}</strong>
                             </>
                           )}
                         </div>

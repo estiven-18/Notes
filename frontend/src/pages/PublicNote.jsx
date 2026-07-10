@@ -23,8 +23,15 @@ const PublicNote = () => {
   }, [publicId]);
 
   if (loading) return <div className="public-note-loading">Cargando...</div>;
-  if (error) return <div className="public-note-error">{error}</div>;
-  if (!note) return <div className="public-note-error">Nota no encontrada</div>;
+  if (error || !note) return (
+    <div className="public-error-page">
+      <img src="/images/empty.png" alt="" className="public-error-img public-error-img--light" />
+      <img src="/images/empty-dark.png" alt="" className="public-error-img public-error-img--dark" />
+      <h2 className="public-error-title">Ups! Ocurrió un error</h2>
+      <p className="public-error-desc">Esta nota ya no está publicada o no existe.</p>
+      <Link to="/login" className="public-error-btn">Ir a Notes</Link>
+    </div>
+  );
 
   const renderBlocks = (blocks) => (
     <div className="public-note-content">
@@ -67,7 +74,7 @@ const PublicNote = () => {
           }}
         />
       )}
-      <div className="public-note-header">
+      <div className={`public-note-header${!note.emoji ? ' no-emoji' : ''}`}>
         {note.emoji && <span className="public-note-emoji">{note.emoji}</span>}
         <h1 className="public-note-title">{note.title || "Sin título"}</h1>
       </div>

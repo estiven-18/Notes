@@ -8,6 +8,7 @@ export const getNotifications = async (req, res) => {
     const notifications = await Notification.find({ to: req.user._id })
       .populate("from", "name email")
       .populate("collection", "name")
+      .populate("document", "title emoji")
       .sort({ createdAt: -1 });
     const unreadCount = notifications.filter((n) => !n.read).length;
     res.json({ success: true, data: { notifications, unreadCount } });
@@ -27,8 +28,51 @@ export const acceptInvitation = async (req, res) => {
       return res.status(403).json({ success: false, message: "No tienes permiso para aceptar esta invitación" });
     }
     if (notification.status !== "pending") {
-      return res.status(400).json({ success: false, message: "La invitación ya fue procesada" });
+      if (notification.document) {
+        const note = await Document.findById(notification.document);
+        if (note && note.sharedWith && !note.sharedWith.some((s) => s.user.equals(req.user._id))) {
+          note.sharedWith.push({ user: req.user._id, role: notification.role || "editor" });
+          await note.save();
+        }
+        return res.json({ success: true, data: notification });
+      }
+      if (notification.collection) {
+        const collection = await Collection.findById(notification.collection);
+        if (collection && !collection.sharedWith.some((s) => s.user.equals(req.user._id))) {
+          collection.sharedWith.push({ user: req.user._id, role: notification.role || "editor" });
+          await collection.save();
+          await Document.updateMany(
+            { collectionId: collection._id },
+            { $addToSet: { sharedWith: { user: req.user._id, role: notification.role || "editor" } } },
+          );
+        }
+        return res.json({ success: true, data: notification });
+      }
+      return res.json({ success: true, data: notification });
     }
+
+    if (notification.document) {
+      const note = await Document.findById(notification.document);
+      if (!note) {
+        return res.status(404).json({ success: false, message: "Nota no encontrada" });
+      }
+      if (!note.sharedWith) note.sharedWith = [];
+      if (!note.sharedWith.some((s) => s.user.equals(req.user._id))) {
+        note.sharedWith.push({ user: req.user._id, role: notification.role || "editor" });
+        await note.save();
+      }
+      notification.status = "accepted";
+      notification.read = true;
+      await notification.save();
+      await Notification.create({
+        type: "invitation_accepted",
+        from: req.user._id,
+        to: notification.from,
+        document: notification.document,
+      });
+      return res.json({ success: true, data: notification });
+    }
+
     const collection = await Collection.findById(notification.collection);
     if (!collection) {
       return res.status(404).json({ success: false, message: "Colección no encontrada" });

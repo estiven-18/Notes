@@ -67,6 +67,15 @@ const documentSchema = new mongoose.Schema({
     ref: 'User',
     default: null
   },
+  lastUpdatedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    default: null
+  },
+  leftBy: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  }],
   isPublic: {
     type: Boolean,
     default: false,

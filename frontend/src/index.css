@@ -891,7 +891,24 @@ body {
   flex-shrink: 0;
 }
 
+.sidebar-note-leave {
+  border: none;
+  background: transparent;
+  color: #999;
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  transition: color 0.15s, background 0.15s;
+  flex-shrink: 0;
+}
+
 .sidebar-note:hover .sidebar-note-delete {
+  opacity: 1;
+}
+
+.sidebar-note:hover .sidebar-note-leave {
   opacity: 1;
 }
 
@@ -920,6 +937,29 @@ body {
 }
 
 .sidebar-note-delete:hover {
+  color: #666;
+  background: #d9d9d6;
+}
+
+.sidebar-note-leave:hover {
+  color: #666;
+  background: #d9d9d6;
+}
+
+.sidebar-show-more-btn {
+  width: 100%;
+  text-align: left;
+  border: none;
+  background: transparent;
+  color: #999;
+  font-size: 13px;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: color 0.15s, background 0.15s;
+}
+
+.sidebar-show-more-btn:hover {
   color: #666;
   background: #d9d9d6;
 }
@@ -1774,8 +1814,6 @@ body {
 }
 
 .editor-title-area > .cover-btn-wrap .cover-title-btn {
-  opacity: 1;
-  pointer-events: auto;
   position: static;
 }
 
@@ -1784,8 +1822,6 @@ body {
 }
 
 .editor-cover-below .cover-title-btn {
-  opacity: 1;
-  pointer-events: auto;
   position: static;
 }
 
@@ -1855,23 +1891,24 @@ body {
 }
 
 .cover-overlay-btn {
-  padding: 4px 10px;
-  font-size: 12px;
-  color: #fff;
-  background: rgba(0,0,0,0.6);
-  border: none;
-  border-radius: 6px;
+  padding: 3px 8px;
+  font-size: 11px;
+  color: #555;
+  background: rgba(240,240,240,0.95);
+  border: 1px solid rgba(0,0,0,0.08);
+  border-radius: 4px;
   cursor: pointer;
   backdrop-filter: blur(4px);
   transition: background 0.15s;
+  font-family: inherit;
 }
 
 .cover-overlay-btn:hover {
-  background: rgba(0,0,0,0.8);
+  background: rgba(220,220,220,0.95);
 }
 
 .cover-remove-btn {
-  color: #ff6b6b;
+  color: #ef4444;
 }
 
 .cover-reposition-bar {
@@ -2987,6 +3024,10 @@ body {
   padding-top: 0;
 }
 
+.public-note-cover + .public-note-header.no-emoji {
+  padding-top: 80px;
+}
+
 .public-note-header {
   text-align: left;
   margin-bottom: 8px;
@@ -2994,7 +3035,7 @@ body {
   width: 100%;
   margin-left: auto;
   margin-right: auto;
-  padding: 0 48px 0;
+  padding: 40px 48px 0;
 }
 
 .public-note-emoji {
@@ -3053,6 +3094,64 @@ body {
   text-align: center;
   padding: 60px 24px;
   color: var(--color-ink-muted, #666);
+}
+
+.public-error-page {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  min-height: 100vh;
+  padding: 60px 24px 24px;
+  text-align: center;
+}
+
+.public-error-img {
+  max-width: 400px;
+  width: 100%;
+  margin-bottom: 24px;
+  opacity: 0.9;
+}
+
+.public-error-img--dark {
+  display: none;
+}
+
+[data-theme="dark"] .public-error-img--light {
+  display: none;
+}
+
+[data-theme="dark"] .public-error-img--dark {
+  display: block;
+}
+
+.public-error-title {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--color-ink-primary, #1a1a1a);
+  margin: 0 0 8px;
+}
+
+.public-error-desc {
+  font-size: 14px;
+  color: var(--color-ink-muted, #666);
+  margin: 0 0 24px;
+}
+
+.public-error-btn {
+  display: inline-block;
+  padding: 8px 24px;
+  border-radius: 8px;
+  background: var(--color-accent, #2563eb);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 500;
+  text-decoration: none;
+  transition: background 0.2s;
+}
+
+.public-error-btn:hover {
+  background: var(--color-accent-hover, #1d4ed8);
 }
 
 /* PUBLISHED BUTTON */
@@ -3829,8 +3928,9 @@ body {
 }
 
 .collection-hero {
-  padding: 0;
+  padding: 80px 0 0 0;
   margin-bottom: 24px;
+  text-align: center;
 }
 
 .collection-hero .editor-title-area {
@@ -4207,6 +4307,9 @@ body {
 .library-badge-fav {
   background: #fef9c3;
   color: #a16207;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
 }
 
 [data-theme="dark"] .library-badge-public {
@@ -4980,4 +5083,38 @@ body {
   flex: 1;
   font-size: 13px;
   color: var(--color-ink-muted);
+}
+
+.publish-banner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 8px 16px;
+  background: #E5F2FC;
+  border-bottom: 1px solid #d0e8fa;
+}
+
+.publish-banner-text {
+  font-size: 13px;
+  color: #387DC9;
+}
+
+.publish-banner-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 12px;
+  font-size: 13px;
+  color: #387DC9;
+  background: #fff;
+  border: 1px solid #b8d9f5;
+  border-radius: 6px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.15s;
+}
+
+.publish-banner-btn:hover {
+  background: #f0f7fe;
 }

@@ -15,6 +15,7 @@ import {
   removeNoteShare,
   changeNoteShareRole,
   getSharedNotes,
+  leaveSharedNote,
   publishNote,
   unpublishNote,
   getPublicNote,
@@ -43,6 +44,7 @@ router.post('/:id/favorite', toggleFavorite);
 router.post('/:id/share', shareNote);
 router.put('/:id/share/:userId', changeNoteShareRole);
 router.post('/:id/unshare', removeNoteShare);
+router.post('/:id/leave', leaveSharedNote);
 router.post('/:id/publish', publishNote);
 router.post('/:id/unpublish', unpublishNote);
 router.get('/:id', getNoteById);

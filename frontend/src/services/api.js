@@ -379,6 +379,16 @@ export const removeNoteShare = async (noteId, userId) => {
   return data.data;
 };
 
+export const leaveSharedNote = async (noteId) => {
+  const response = await fetch(`${API_URL}/document/${noteId}/leave`, {
+    method: "POST",
+    headers: getAuthHeaders(),
+  });
+  const data = await response.json();
+  if (!data.success) throw new Error(data.message);
+  return data.data;
+};
+
 export const changeShareRole = async (collectionId, userId, role) => {
   const response = await fetch(`${API_URL}/collections/${collectionId}/share/${userId}`, {
     method: "PUT",
