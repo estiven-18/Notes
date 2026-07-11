@@ -1,6 +1,8 @@
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
+import fs from "fs";
+import path from "path";
 import connectDB from "./config/database.js";
 import { setupSignalingServer } from "./config/signaling.js";
 import { migrateSharedWith } from "./utils/migrateSharedWith.js";
@@ -17,6 +19,11 @@ const app = express();
 const PORT = process.env.PORT || 3001;
 
 const allowedOrigin = (process.env.FRONTEND_URL || "http://localhost:5173").replace(/\/$/, "");
+
+const uploadsDir = path.resolve("uploads");
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+}
 
 app.use(
   cors({
