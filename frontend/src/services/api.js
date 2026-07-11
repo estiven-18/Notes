@@ -493,12 +493,23 @@ export const uploadFile = async (file) => {
   const token = localStorage.getItem('auth_token');
   const formData = new FormData();
   formData.append('file', file);
+  console.log('Upload URL:', `${API_URL}/upload`);
+  console.log('Token:', token ? 'present' : 'missing');
   const response = await fetch(`${API_URL}/upload`, {
     method: 'POST',
     headers: token ? { Authorization: `Bearer ${token}` } : {},
     body: formData,
   });
-  const data = await response.json();
+  console.log('Upload response status:', response.status);
+  const text = await response.text();
+  console.log('Upload response text:', text);
+  let data;
+  try {
+    data = JSON.parse(text);
+  } catch (e) {
+    console.error('Failed to parse JSON:', text);
+    throw new Error(`Server returned invalid response (${response.status}): ${text.slice(0, 200)}`);
+  }
   if (!data.success) throw new Error(data.message);
   return data.data.url;
 };
