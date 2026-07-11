@@ -1,8 +1,8 @@
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
+import { Readable } from "stream";
 import { v2 as cloudinary } from "cloudinary";
-import { CloudinaryStorage } from "multer-storage-cloudinary";
 import multer from "multer";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -38,37 +38,46 @@ if (useCloudinary) {
   }
 }
 
-const cloudinaryStorage = new CloudinaryStorage({
-  cloudinary,
-  params: {
-    folder: "notes-uploads",
-    allowed_formats: ["jpg", "jpeg", "png", "gif", "webp", "pdf"],
-    resource_type: "auto",
-  },
-});
-
-const diskStorage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, uploadsDir);
-  },
-  filename: (req, file, cb) => {
-    const safeName = file.originalname
-      .toLowerCase()
-      .replace(/[^a-z0-9_.-]+/g, "-")
-      .replace(/-+/g, "-");
-    cb(null, `${Date.now()}-${safeName}`);
-  },
-});
-
 const upload = multer({
-  storage: useCloudinary ? cloudinaryStorage : diskStorage,
+  storage: multer.memoryStorage(),
   limits: { fileSize: 50 * 1024 * 1024 },
 });
+
+const safeFileName = (fileName) => fileName
+  .toLowerCase()
+  .replace(/[^a-z0-9_.-]+/g, "-")
+  .replace(/-+/g, "-");
 
 const buildLocalFileUrl = (req, filename) => {
   const baseUrl = `${req.protocol}://${req.get("host")}`;
   return `${baseUrl}/uploads/${filename}`;
 };
+
+const saveLocally = async (req, file) => {
+  const localName = `${Date.now()}-${safeFileName(file.originalname)}`;
+  const localPath = path.join(uploadsDir, localName);
+  await fs.promises.writeFile(localPath, file.buffer);
+  return {
+    url: buildLocalFileUrl(req, localName),
+    filename: localName,
+  };
+};
+
+const uploadToCloudinary = (file) => new Promise((resolve, reject) => {
+  const stream = cloudinary.uploader.upload_stream(
+    {
+      folder: "notes-uploads",
+      resource_type: "auto",
+      format: file.mimetype?.split("/")[1],
+    },
+    (error, result) => {
+      if (error) return reject(error);
+      return resolve(result);
+    },
+  );
+
+  Readable.from(file.buffer).pipe(stream);
+});
 
 export const uploadFile = (req, res) => {
   upload.single("file")(req, res, (err) => {
@@ -81,8 +90,33 @@ export const uploadFile = (req, res) => {
       return res.status(400).json({ success: false, message: "No file" });
     }
 
-    const url = req.file.path || buildLocalFileUrl(req, req.file.filename);
-    console.log("File uploaded:", url);
-    res.json({ success: true, data: { url, filename: req.file.filename } });
+    try {
+      if (useCloudinary) {
+        const result = await uploadToCloudinary(req.file);
+        console.log("File uploaded to Cloudinary:", result.secure_url);
+        return res.json({
+          success: true,
+          data: { url: result.secure_url, filename: result.public_id },
+        });
+      }
+
+      const localFile = await saveLocally(req, req.file);
+      console.log("File uploaded locally:", localFile.url);
+      return res.json({ success: true, data: localFile });
+    } catch (uploadError) {
+      console.error("Cloudinary upload failed, falling back to local storage:", uploadError);
+
+      try {
+        const localFile = await saveLocally(req, req.file);
+        console.log("File uploaded locally after fallback:", localFile.url);
+        return res.json({ success: true, data: localFile });
+      } catch (fallbackError) {
+        console.error("Local upload fallback failed:", fallbackError);
+        return res.status(500).json({
+          success: false,
+          message: "No se pudo subir la imagen",
+        });
+      }
+    }
   });
 };
