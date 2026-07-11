@@ -89,11 +89,16 @@ const SearchModalContent = ({ onClose, onSelectNote, onSelectCollection }) => {
               onChange={handleChange}
               onKeyDown={handleKeyDown}
             />
+            <button className="search-modal-clear" onClick={() => onClose()}>
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="#999" width="18" height="18">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
+              </svg>
+            </button>
           </div>
 
           <div className="search-modal-body">
             <div className="search-modal-results">
-              {loading && <div className="search-modal-loading">Buscando...</div>}
+              {loading && <div className="search-modal-loading"></div>}
               {!loading && !query.trim() && (
                 <div className="search-modal-placeholder">
                   <img

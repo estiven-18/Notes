@@ -1,12 +1,11 @@
 import { useState, useEffect, useRef } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { updateUserProfile, clearError } from "../store/authSlice";
-import { useTheme } from "../store/ThemeContext";
+import { updateUserProfile, deleteAccount, clearError, logout } from "../store/authSlice";
 
 const SettingsModalContent = ({ user, loading, onClose, onWorkspaceNameChange }) => {
   const dispatch = useDispatch();
-  const { theme, toggleTheme } = useTheme();
   const [name, setName] = useState(user?.name || "");
+  const [nameError, setNameError] = useState("");
   const [workspaceName, setWorkspaceName] = useState(() => {
     const stored = localStorage.getItem('workspaceName');
     if (stored) return stored;
@@ -14,12 +13,15 @@ const SettingsModalContent = ({ user, loading, onClose, onWorkspaceNameChange })
     localStorage.setItem('workspaceName', defaultName);
     return defaultName;
   });
+  const [workspaceNameError, setWorkspaceNameError] = useState("");
   const [email, setEmail] = useState(user?.email || "");
   const [originalEmail, setOriginalEmail] = useState(user?.email || "");
+  const [emailError, setEmailError] = useState("");
   const [password, setPassword] = useState("");
   const [success, setSuccess] = useState("");
   const [errors, setErrors] = useState({});
   const [deleteConfirm, setDeleteConfirm] = useState("");
+  const [deleteError, setDeleteError] = useState("");
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const saveTimer = useRef(null);
 
@@ -36,41 +38,71 @@ const SettingsModalContent = ({ user, loading, onClose, onWorkspaceNameChange })
   }, []);
 
   const autoSaveName = (value) => {
+    if (value.length > 30) {
+      setNameError("Máximo 30 caracteres");
+      return;
+    }
+    if (value.length > 0 && value.trim().length === 0) {
+      setNameError("El nombre no puede estar vacío");
+      return;
+    }
+    if (value.length > 0 && value.trim().length < 1) {
+      setNameError("Mínimo 1 carácter");
+      return;
+    }
     setName(value);
+    setNameError("");
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(() => {
-      dispatch(updateUserProfile({ name: value }));
+      if (value.trim().length > 0) {
+        dispatch(updateUserProfile({ name: value }));
+      }
     }, 500);
   };
 
   const handleWorkspaceName = (value) => {
-    setWorkspaceName(value);
-    if (value.trim()) {
-      localStorage.setItem('workspaceName', value);
-      if (onWorkspaceNameChange) onWorkspaceNameChange(value);
+    if (value.length <= 20) {
+      setWorkspaceName(value);
+      setWorkspaceNameError("");
+      if (value.trim()) {
+        localStorage.setItem('workspaceName', value);
+        if (onWorkspaceNameChange) onWorkspaceNameChange(value);
+      }
+    } else {
+      setWorkspaceNameError("Máximo 20 caracteres");
     }
   };
 
   const handleSaveEmail = (e) => {
     e.preventDefault();
     setSuccess("");
-    setErrors({});
+    setEmailError("");
     if (!email.trim()) {
-      setErrors({ email: "El correo es requerido" });
+      setEmailError("El correo es requerido");
       return;
     }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      setErrors({ email: "El correo no es válido" });
+      setEmailError("El correo no es válido");
       return;
     }
     if (email === originalEmail) return;
+console.log("Sending email update:", email);
     dispatch(updateUserProfile({ email })).then((res) => {
+      console.log("Email update response:", res);
       if (res.meta.requestStatus === "fulfilled") {
         setOriginalEmail(email);
         setSuccess("Correo actualizado");
         setTimeout(() => setSuccess(""), 3000);
       } else {
-        setErrors({ email: res.payload || "Error al actualizar correo" });
+        let msg = res.payload || "Error al actualizar correo";
+        const lower = msg.toLowerCase();
+        console.log("Email update error:", msg);
+        if (lower.includes("validation failed") || lower.includes("email inválido") || lower.includes("email invalido") || lower.includes("invalid email") || lower.includes("user validation failed") || lower.includes("correo no es válido") || lower.includes("correo invalido")) {
+          msg = "El correo no es válido";
+        } else if (lower.includes("el email ya está en uso") || lower.includes("el email ya esta en uso") || lower.includes("ya está en uso") || lower.includes("duplicate") || lower.includes("11000")) {
+          msg = "El correo ya está en uso";
+        }
+        setEmailError(msg);
       }
     });
   };
@@ -98,11 +130,18 @@ const SettingsModalContent = ({ user, loading, onClose, onWorkspaceNameChange })
     });
   };
 
-  const handleDeleteAccount = () => {
+  const handleDeleteAccount = async () => {
     if (deleteConfirm === user?.name) {
-      alert("Función de eliminar cuenta no disponible aún");
-      setShowDeleteModal(false);
-      setDeleteConfirm("");
+      try {
+        await dispatch(deleteAccount()).unwrap();
+        setShowDeleteModal(false);
+        setDeleteConfirm("");
+        onClose();
+        dispatch(logout());
+        window.location.href = '/login';
+      } catch (err) {
+        setDeleteError(err || "Error al eliminar cuenta");
+      }
     }
   };
 
@@ -132,12 +171,14 @@ const SettingsModalContent = ({ user, loading, onClose, onWorkspaceNameChange })
           <div className="settings-field">
             <label className="ty-caption settings-label">Nombre del perfil</label>
             <input
-              className="settings-input"
+              className={`settings-input ${nameError ? 'input-error' : ''}`}
               type="text"
               value={name}
               onChange={(e) => autoSaveName(e.target.value)}
+              maxLength={30}
               required
             />
+            {nameError && <div className="settings-field-error">{nameError}</div>}
           </div>
 
           <form onSubmit={handleSaveEmail} noValidate>
@@ -145,10 +186,10 @@ const SettingsModalContent = ({ user, loading, onClose, onWorkspaceNameChange })
               <label className="ty-caption settings-label">Correo electrónico</label>
               <div className="settings-input-wrapper">
                 <input
-                  className={`settings-input ${errors.email ? 'settings-input-error' : ''}`}
+                  className={`settings-input ${emailError ? 'input-error' : ''}`}
                   type="email"
                   value={email}
-                  onChange={(e) => { setEmail(e.target.value); setErrors((prev) => ({ ...prev, email: null })); }}
+                  onChange={(e) => { setEmail(e.target.value); setEmailError(""); }}
                   required
                 />
                 {email !== originalEmail && (
@@ -157,7 +198,7 @@ const SettingsModalContent = ({ user, loading, onClose, onWorkspaceNameChange })
                   </button>
                 )}
               </div>
-              {errors.email && <span className="settings-error">{errors.email}</span>}
+              {emailError && <div className="settings-field-error">{emailError}</div>}
             </div>
           </form>
 
@@ -190,38 +231,14 @@ const SettingsModalContent = ({ user, loading, onClose, onWorkspaceNameChange })
             <div className="settings-field">
               <label className="ty-caption settings-label">Nombre del espacio de trabajo</label>
               <input
-                className="settings-input"
+                className={`settings-input ${workspaceNameError ? 'input-error' : ''}`}
                 type="text"
                 value={workspaceName}
                 onChange={(e) => handleWorkspaceName(e.target.value)}
+                maxLength={20}
                 required
               />
-            </div>
-            <div className="settings-theme-options">
-              <button
-                className={`settings-theme-option ${theme === "light" ? "active" : ""}`}
-                onClick={() => { if (theme !== "light") toggleTheme(); }}
-              >
-                <div className="settings-theme-preview settings-theme-light">
-                  <div className="settings-theme-bar" />
-                  <div className="settings-theme-dots">
-                    <div /><div /><div />
-                  </div>
-                </div>
-                <span className="ty-body-sm">Claro</span>
-              </button>
-              <button
-                className={`settings-theme-option ${theme === "dark" ? "active" : ""}`}
-                onClick={() => { if (theme !== "dark") toggleTheme(); }}
-              >
-                <div className="settings-theme-preview settings-theme-dark">
-                  <div className="settings-theme-bar" />
-                  <div className="settings-theme-dots">
-                    <div /><div /><div />
-                  </div>
-                </div>
-                <span className="ty-body-sm">Oscuro</span>
-              </button>
+              {workspaceNameError && <div className="settings-field-error">{workspaceNameError}</div>}
             </div>
           </div>
 
@@ -245,7 +262,7 @@ const SettingsModalContent = ({ user, loading, onClose, onWorkspaceNameChange })
       </div>
 
       {showDeleteModal && (
-        <div className="settings-confirm-overlay" onClick={() => { setShowDeleteModal(false); setDeleteConfirm(""); }}>
+        <div className="settings-confirm-overlay" onClick={() => { setShowDeleteModal(false); setDeleteConfirm(""); setDeleteError(""); }}>
           <div className="settings-confirm-modal" onClick={(e) => e.stopPropagation()}>
             <div className="settings-confirm-icon">
               <svg width="40" height="40" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -273,9 +290,10 @@ const SettingsModalContent = ({ user, loading, onClose, onWorkspaceNameChange })
             >
               Eliminar cuenta
             </button>
+            {deleteError && <div style={{ color: "#e74c3c", fontSize: 12, marginTop: 8, textAlign: "center" }}>{deleteError}</div>}
             <button
               className="settings-btn-cancel"
-              onClick={() => { setShowDeleteModal(false); setDeleteConfirm(""); }}
+              onClick={() => { setShowDeleteModal(false); setDeleteConfirm(""); setDeleteError(""); }}
             >
               Cancelar
             </button>

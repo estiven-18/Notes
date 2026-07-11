@@ -297,6 +297,16 @@ export const updateProfile = async ({ name, email, password }) => {
   return data.data;
 };
 
+export const deleteAccount = async () => {
+  const response = await fetch(`${API_URL}/auth/account`, {
+    method: "DELETE",
+    headers: getAuthHeaders(),
+  });
+  const data = await response.json();
+  if (!data.success) throw new Error(data.message);
+  return data;
+};
+
 export const shareCollection = async (collectionId, email, role = 'editor') => {
   const response = await fetch(`${API_URL}/collections/${collectionId}/share`, {
     method: "POST",

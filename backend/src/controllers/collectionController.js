@@ -336,16 +336,17 @@ export const search = async (req, res) => {
 
     const regex = new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
 
-    const userCollectionIds = await Collection.find({ user: req.user._id }).distinct('_id');
-    const sharedCollectionIds = await Collection.find({ 'sharedWith.user': req.user._id }).distinct('_id');
+    const userCollectionIds = await Collection.find({ user: req.user._id, isDeleted: { $ne: true } }).distinct('_id');
+    const sharedCollectionIds = await Collection.find({ 'sharedWith.user': req.user._id, isDeleted: { $ne: true } }).distinct('_id');
     const allIds = [...userCollectionIds, ...sharedCollectionIds];
 
     const matchingCollections = await Collection.find({
       _id: { $in: allIds },
-      name: regex
+      name: regex,
+      isDeleted: { $ne: true }
     }).select('name').lean();
 
-    const allNotes = await Document.find({ collectionId: { $in: allIds } })
+    const allNotes = await Document.find({ collectionId: { $in: allIds }, isDeleted: { $ne: true } })
       .select('title emoji content collectionId coverUrl')
       .populate('collectionId', 'name')
       .lean();

@@ -35,11 +35,20 @@ function AppLayout() {
   const [showTrash, setShowTrash] = useState(false);
   const [favoriteRefreshKey, setFavoriteRefreshKey] = useState(0);
   const [trashRefreshKey, setTrashRefreshKey] = useState(0);
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(() => window.innerWidth > 768);
+  const [isMobileView, setIsMobileView] = useState(() => window.innerWidth <= 768);
   const [sharedRefreshKey, setSharedRefreshKey] = useState(0);
   const [collectionRefreshKey, setCollectionRefreshKey] = useState(0);
   const [noteRefreshKey, setNoteRefreshKey] = useState(0);
   const [activeCollection, setActiveCollection] = useState(null);
+  const [editorFavorite, setEditorFavorite] = useState(false);
+  const editorActionsRef = useRef(null);
+
+  useEffect(() => {
+    const handleResize = () => setIsMobileView(window.innerWidth <= 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   useEffect(() => {
     if (isCollectionView) {
@@ -156,6 +165,32 @@ function AppLayout() {
 
   return (
     <div className={`app-layout${sidebarOpen ? '' : ' sidebar-collapsed'}`}>
+      <div className="mobile-topbar">
+        <div className="mobile-topbar-left">
+          <button className="mobile-topbar-btn" onClick={toggleSidebar}>
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" width="22" height="22">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
+            </svg>
+          </button>
+        </div>
+        <div className="mobile-topbar-right">
+          {displayedActiveNote && (
+            <>
+              <button className={`mobile-topbar-btn ${editorFavorite ? 'favorited' : ''}`} onClick={() => editorActionsRef.current?.toggleFavorite()}>
+                <svg xmlns="http://www.w3.org/2000/svg" fill={editorFavorite ? "currentColor" : "none"} viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" width="20" height="20">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M11.48 3.499a.562.562 0 0 1 1.04 0l2.125 5.111a.563.563 0 0 0 .475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 0 0-.182.557l1.285 5.385a.562.562 0 0 1-.84.61l-4.725-2.885a.562.562 0 0 0-.586 0L6.982 20.54a.562.562 0 0 1-.84-.61l1.285-5.386a.562.562 0 0 0-.182-.557l-4.204-3.602a.562.562 0 0 1 .321-.988l5.518-.442a.563.563 0 0 0 .475-.345L11.48 3.5Z" />
+                </svg>
+              </button>
+              <button className="mobile-topbar-btn" onClick={() => editorActionsRef.current?.openShare()}>
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" width="20" height="20">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 8.25V18a2.25 2.25 0 0 0 2.25 2.25h13.5A2.25 2.25 0 0 0 21 18V8.25m-18 0V6a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 6v2.25m-18 0h18" />
+                </svg>
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+      {sidebarOpen && isMobileView && <div className="sidebar-overlay active" onClick={toggleSidebar} />}
       <Sidebar
         activeNote={displayedActiveNote}
         onSelectNote={handleSelectNote}
@@ -171,7 +206,7 @@ function AppLayout() {
         activeCollection={activeCollection}
         onCollectionUpdate={activeCollection}
       />
-      {!sidebarOpen && (
+      {!sidebarOpen && isMobileView && (
         <button
           className="sidebar-expand-btn"
           onClick={toggleSidebar}
@@ -209,6 +244,10 @@ function AppLayout() {
             sidebarOpen={sidebarOpen}
             onToggleSidebar={toggleSidebar}
             onCreateCollection={handleCreateCollection}
+            editorActionsRef={editorActionsRef}
+            onEditorStateChange={(state) => {
+              setEditorFavorite(state.isFavorite);
+            }}
           />
         </>
       )}

@@ -17,7 +17,7 @@ const userColors = [
   "#4dabf7", "#748ffc", "#da77f2", "#f783ac", "#63e6be",
 ];
 
-const NotionEditor = ({ noteId, onTitleChange, onEmojiChange, onFavoriteToggle, onShareChange, sidebarOpen, onToggleSidebar, onCreateCollection }) => {
+const NotionEditor = ({ noteId, onTitleChange, onEmojiChange, onFavoriteToggle, onShareChange, sidebarOpen, onToggleSidebar, onCreateCollection, editorActionsRef, onEditorStateChange }) => {
   const currentUser = useSelector((state) => state.auth.user);
 
   if (!noteId) {
@@ -55,12 +55,15 @@ const NotionEditor = ({ noteId, onTitleChange, onEmojiChange, onFavoriteToggle, 
         onShareChange={onShareChange}
         sidebarOpen={sidebarOpen}
         onToggleSidebar={onToggleSidebar}
+        onCreateCollection={onCreateCollection}
+        editorActionsRef={editorActionsRef}
+        onEditorStateChange={onEditorStateChange}
       />
     </div>
   );
 };
 
-const EditorInner = ({ noteId, currentUser, onTitleChange, onEmojiChange, onFavoriteToggle, onShareChange, sidebarOpen, onToggleSidebar }) => {
+const EditorInner = ({ noteId, currentUser, onTitleChange, onEmojiChange, onFavoriteToggle, onShareChange, sidebarOpen, onToggleSidebar, editorActionsRef, onEditorStateChange }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [lastSaved, setLastSaved] = useState(null);
@@ -75,6 +78,7 @@ const EditorInner = ({ noteId, currentUser, onTitleChange, onEmojiChange, onFavo
   const [showShareDropdown, setShowShareDropdown] = useState(false);
   const [shareTab, setShareTab] = useState("compartir");
   const [shareEmail, setShareEmail] = useState("");
+  const [shareEmailError, setShareEmailError] = useState("");
   const [coverUrl, setCoverUrl] = useState(null);
   const [coverPosition, setCoverPosition] = useState(0);
   const [noteInfo, setNoteInfo] = useState(null);
@@ -174,7 +178,7 @@ const EditorInner = ({ noteId, currentUser, onTitleChange, onEmojiChange, onFavo
           setPublicUrl(note.publicId ? window.location.origin + `/public/${note.publicId}` : null);
           setCoverUrl(note.coverUrl || null);
           setCoverPosition(note.coverPosition || 0);
-          const shared = (note.sharedWith && note.sharedWith.length > 0) ? note.sharedWith : (note.collectionSharedWith || []);
+          const shared = note.sharedWith && note.sharedWith.length > 0 ? note.sharedWith : [];
           setNoteSharedWith(shared);
           setUserRole(role);
           setLastSaved(new Date(note.updatedAt).getTime());
@@ -263,7 +267,7 @@ const EditorInner = ({ noteId, currentUser, onTitleChange, onEmojiChange, onFavo
     }
   };
 
-  const handleFavoriteClick = async () => {
+  const handleFavoriteClick = useCallback(async () => {
     try {
       const updated = await toggleFavorite(noteId);
       const newFav = updated.metadata?.isFavorite || false;
@@ -272,7 +276,7 @@ const EditorInner = ({ noteId, currentUser, onTitleChange, onEmojiChange, onFavo
     } catch (err) {
       console.error("Error al cambiar favorito:", err);
     }
-  };
+  }, [noteId, onFavoriteToggle]);
 
   const handleShareNote = async (nid, email, role = 'editor') => {
     const updated = await shareNote(nid, email, role);
@@ -281,14 +285,22 @@ const EditorInner = ({ noteId, currentUser, onTitleChange, onEmojiChange, onFavo
   };
 
   const handleRemoveNoteShare = async (nid, userId) => {
-    const updated = await removeNoteShare(nid, userId);
-    setNoteSharedWith(updated.sharedWith || []);
-    onShareChange?.();
+    try {
+      const updated = await removeNoteShare(nid, userId);
+      setNoteSharedWith(updated.sharedWith || []);
+      onShareChange?.();
+    } catch (err) {
+      alert(err.message || "Error al quitar acceso");
+    }
   };
 
   const handleChangeNoteShareRole = async (nid, userId, role) => {
-    const updated = await changeNoteShareRole(nid, userId, role);
-    setNoteSharedWith(updated.sharedWith || []);
+    try {
+      const updated = await changeNoteShareRole(nid, userId, role);
+      setNoteSharedWith(updated.sharedWith || []);
+    } catch (err) {
+      alert(err.message || "Error al cambiar rol");
+    }
   };
 
   const handlePublish = async () => {
@@ -312,10 +324,25 @@ const EditorInner = ({ noteId, currentUser, onTitleChange, onEmojiChange, onFavo
     }
   };
 
+  useEffect(() => {
+    if (editorActionsRef) {
+      editorActionsRef.current = {
+        toggleFavorite: handleFavoriteClick,
+        openShare: () => setShowShareDropdown(true),
+      };
+    }
+  }, [editorActionsRef, handleFavoriteClick]);
+
+  useEffect(() => {
+    if (onEditorStateChange) {
+      onEditorStateChange({ isFavorite, isPublic });
+    }
+  }, [isFavorite, isPublic, onEditorStateChange]);
+
   if (error) {
     return (
       <div className="editor-empty">
-        <img src={document.documentElement.getAttribute('data-theme') === 'dark' ? '/images/error-dark.png' : '/images/error.png'} alt="Error" className="editor-empty-img" />
+        <img src="/images/error.png" alt="Error" className="editor-empty-img" />
         <p>Ups! Nota no encontrada</p>
       </div>
     );
@@ -390,17 +417,22 @@ const EditorInner = ({ noteId, currentUser, onTitleChange, onEmojiChange, onFavo
                       Publicar
                     </button>
                   </div>
-                  {shareTab === "compartir" && (
+                   {shareTab === "compartir" && (
                     <div className="share-dropdown-body">
                       <div className="share-dropdown-input-row">
                         <input
-                          className="share-dropdown-input"
+                          className={`share-dropdown-input ${shareEmailError ? 'input-error' : ''}`}
                           type="email"
                           placeholder="Correo electrónico del invitado"
                           value={shareEmail}
-                          onChange={(e) => setShareEmail(e.target.value)}
+                          onChange={(e) => { setShareEmail(e.target.value); setShareEmailError(""); }}
                           onKeyDown={async (e) => {
                             if (e.key === 'Enter' && shareEmail.trim()) {
+                              const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                              if (!emailRegex.test(shareEmail.trim())) {
+                                setShareEmailError("Ingresa un correo válido");
+                                return;
+                              }
                               try {
                                 await handleShareNote(noteId, shareEmail.trim(), 'editor');
                                 setShareEmail("");
@@ -412,6 +444,11 @@ const EditorInner = ({ noteId, currentUser, onTitleChange, onEmojiChange, onFavo
                           className="share-dropdown-invite-btn"
                           onClick={async () => {
                             if (shareEmail.trim()) {
+                              const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                              if (!emailRegex.test(shareEmail.trim())) {
+                                setShareEmailError("Ingresa un correo válido");
+                                return;
+                              }
                               try {
                                 await handleShareNote(noteId, shareEmail.trim(), 'editor');
                                 setShareEmail("");
@@ -423,6 +460,7 @@ const EditorInner = ({ noteId, currentUser, onTitleChange, onEmojiChange, onFavo
                           Invitar
                         </button>
                       </div>
+                      {shareEmailError && <div className="share-dropdown-error">{shareEmailError}</div>}
                       <div className="share-dropdown-users">
                         <div className="share-dropdown-user">
                           <span className="share-dropdown-avatar" style={{ backgroundColor: '#e8e8e6', color: '#555' }}>
@@ -544,12 +582,12 @@ const EditorInner = ({ noteId, currentUser, onTitleChange, onEmojiChange, onFavo
 
       {isPublic && publicUrl && (
         <div className="publish-banner">
-          <span className="publish-banner-text">Esta página está publicada en {publicUrl.replace(/^https?:\/\//, '')}</span>
+          <span className="publish-banner-text">Esta nota está publicada</span>
           <button className="publish-banner-btn" onClick={() => window.open(publicUrl, '_blank')}>
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" width="14" height="14">
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 21a9.004 9.004 0 0 0 8.716-6.747M12 21a9.004 9.004 0 0 1-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 0 1 7.843 4.582M12 3a8.997 8.997 0 0 0-7.843 4.582m15.686 0A11.953 11.953 0 0 1 12 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0 1 21 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0 1 12 16.5a17.92 17.92 0 0 1-8.716-2.247m0 0A9.015 9.015 0 0 1 3 12c0-1.605.42-3.113 1.157-4.418" />
             </svg>
-            Ver sitio web
+            Ver
           </button>
         </div>
       )}

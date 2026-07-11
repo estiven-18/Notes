@@ -32,6 +32,10 @@ export const register = async (req, res) => {
     if (error.code === 11000) {
       return res.status(409).json({ success: false, message: 'El email ya está registrado' });
     }
+    if (error.name === 'ValidationError') {
+      const messages = Object.values(error.errors).map(e => e.message);
+      return res.status(400).json({ success: false, message: messages.join(', ') });
+    }
     res.status(500).json({ success: false, message: error.message });
   }
 };
@@ -106,6 +110,10 @@ export const updateProfile = async (req, res) => {
     if (error.code === 11000) {
       return res.status(409).json({ success: false, message: 'El email ya está en uso' });
     }
+    if (error.name === 'ValidationError') {
+      const msg = Object.values(error.errors).map(e => e.message).join(', ');
+      return res.status(400).json({ success: false, message: msg });
+    }
     res.status(500).json({ success: false, message: error.message });
   }
 };
@@ -120,6 +128,30 @@ export const verify = async (req, res) => {
       success: true,
       data: { user: { id: user._id, name: user.name, email: user.email } }
     });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const deleteAccount = async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id);
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'Usuario no encontrado' });
+    }
+
+    const mongoose = await import('mongoose');
+    const Document = (await import('../models/Document.js')).default;
+    const Collection = (await import('../models/Collection.js')).default;
+    const Notification = (await import('../models/Notification.js')).default;
+
+    await Document.deleteMany({ user: req.user._id });
+    await Collection.deleteMany({ user: req.user._id });
+    await Notification.deleteMany({ $or: [{ user: req.user._id }, { fromUser: req.user._id }] });
+
+    await User.findByIdAndDelete(req.user._id);
+
+    res.json({ success: true, message: 'Cuenta eliminada permanentemente' });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

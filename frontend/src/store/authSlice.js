@@ -55,6 +55,16 @@ export const verifyToken = createAsyncThunk('auth/verify', async (_, { rejectWit
   }
 });
 
+export const deleteAccount = createAsyncThunk('auth/deleteAccount', async (_, { rejectWithValue }) => {
+  try {
+    await api.deleteAccount();
+    localStorage.removeItem(USER_KEY);
+    return true;
+  } catch (error) {
+    return rejectWithValue(error.message);
+  }
+});
+
 const initialState = {
   ...loadState(),
   loading: false,

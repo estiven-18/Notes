@@ -300,18 +300,30 @@ export const changeNoteShareRole = async (req, res) => {
     if (!role || !['viewer', 'editor'].includes(role)) {
       return res.status(400).json({ success: false, message: "Rol inválido" });
     }
-    const note = await Document.findOne({ _id: id, user: req.user._id });
+    const note = await Document.findOne({ _id: id, user: req.user._id }).populate('collectionId');
     if (!note) {
       return res.status(404).json({ success: false, message: "Nota no encontrada" });
     }
-    const entry = note.sharedWith.find((s) => s.user.equals(userId));
-    if (!entry) {
-      return res.status(404).json({ success: false, message: "Usuario no encontrado en la lista de compartidos" });
+    let entry = note.sharedWith.find((s) => s.user.equals(userId));
+    if (entry) {
+      entry.role = role;
+      await note.save();
+      const populated = await Document.populate(note, { path: 'sharedWith.user', select: 'name email' });
+      return res.json({ success: true, data: populated });
     }
-    entry.role = role;
-    await note.save();
-    const populated = await Document.populate(note, { path: 'sharedWith.user', select: 'name email' });
-    res.json({ success: true, data: populated });
+    if (note.collectionId) {
+      const collection = await Collection.findById(note.collectionId);
+      if (collection) {
+        entry = collection.sharedWith.find((s) => s.user.equals(userId));
+        if (entry) {
+          entry.role = role;
+          await collection.save();
+          const updatedNote = await Document.findById(id).populate('sharedWith.user', 'name email').populate('collectionId');
+          return res.json({ success: true, data: updatedNote });
+        }
+      }
+    }
+    return res.status(404).json({ success: false, message: "Usuario no encontrado en la lista de compartidos" });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

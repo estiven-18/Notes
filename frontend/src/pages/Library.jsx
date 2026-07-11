@@ -3,16 +3,17 @@ import { useNavigate, useLocation } from "react-router-dom";
 import {
   getCollections,
   getSharedCollections,
+  getSharedNotes,
   createCollection,
 } from "../services/api";
 
 
 const tabs = [
-  { id: "all", label: "Recents" },
-  { id: "favorites", label: "Favorites" },
-  { id: "shared", label: "Shared" },
-  { id: "private", label: "Private" },
-  { id: "public", label: "Public" },
+  { id: "all", label: "Recientes" },
+  { id: "favorites", label: "Favoritos" },
+  { id: "shared", label: "Compartidos" },
+  { id: "private", label: "Privados" },
+  { id: "public", label: "Públicos" },
 ];
 
 const Library = ({ noteRefreshKey, onCollectionCreated }) => {
@@ -20,6 +21,7 @@ const Library = ({ noteRefreshKey, onCollectionCreated }) => {
   const location = useLocation();
   const [activeTab, setActiveTab] = useState("all");
   const [collections, setCollections] = useState([]);
+  const [sharedNotes, setSharedNotes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [now, setNow] = useState(() => Date.now());
 
@@ -33,15 +35,19 @@ const Library = ({ noteRefreshKey, onCollectionCreated }) => {
     const load = async () => {
       setLoading(true);
       try {
-        const [allCols, sharedCols] = await Promise.all([
+        const [allCols, sharedCols, sNotes] = await Promise.all([
           getCollections(),
           getSharedCollections().catch(() => []),
+          getSharedNotes().catch(() => []),
         ]);
         const merged = [...(allCols || [])];
         (sharedCols || []).forEach(sc => {
           if (!merged.find(c => c._id === sc._id)) merged.push({ ...sc, _sharedWithMe: true });
         });
-        if (!cancelled) setCollections(merged);
+        if (!cancelled) {
+          setCollections(merged);
+          setSharedNotes(sNotes || []);
+        }
       } catch (err) {
         console.error("Error loading library:", err);
       } finally {
@@ -72,6 +78,10 @@ const Library = ({ noteRefreshKey, onCollectionCreated }) => {
   };
 
   const filteredCollections = getFilteredCollections();
+  const sharedItems = activeTab === "shared" ? [
+    ...sharedNotes.map(n => ({ ...n, _type: "note" })),
+    ...filteredCollections.map(c => ({ ...c, _type: "collection" })),
+  ] : [];
 
   const getRelativeTime = (timestamp) => {
     if (!timestamp) return "";
@@ -153,13 +163,17 @@ const Library = ({ noteRefreshKey, onCollectionCreated }) => {
 
       {loading ? (
         <div className="library-loading">Cargando...</div>
-      ) : filteredCollections.length === 0 ? (
+      ) : (activeTab === "shared" ? sharedItems : filteredCollections).length === 0 ? (
         <div className="library-empty" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-start', paddingTop: 80 }}>
           <div className="library-empty-icon" style={{ marginBottom: 8 }}>
             <img src="/images/empty.png" alt="Vacío" className="library-empty-img library-empty-img--light" style={{ maxWidth: 400 }} />
             <img src="/images/empty-dark.png" alt="Vacío" className="library-empty-img library-empty-img--dark" style={{ maxWidth: 400 }} />
           </div>
-          <p className="library-empty-title" style={{ textAlign: 'center', margin: 0, color: '#999', fontWeight: 400, fontSize: 14, lineHeight: 1.5 }}>no hay colecciones aquí.<br/>crea una nueva colección para empezar.</p>
+          <p className="library-empty-title" style={{ textAlign: 'center', margin: 0, color: '#999', fontWeight: 400, fontSize: 14, lineHeight: 1.5 }}>
+            {activeTab === "shared"
+              ? "no hay notas ni colecciones compartidas contigo."
+              : "no hay colecciones aquí.\ncrea una nueva colección para empezar."}
+          </p>
         </div>
       ) : (
         <div className="library-table-wrapper">
@@ -172,26 +186,28 @@ const Library = ({ noteRefreshKey, onCollectionCreated }) => {
               </tr>
             </thead>
             <tbody>
-              {filteredCollections.map((col) => (
+              {(activeTab === "shared" ? sharedItems : filteredCollections).map((item) => (
                 <tr
-                  key={col._id}
+                  key={item._id}
                   className="library-row"
-                  onClick={() => navigate(`/collection/${col._id}`)}
+                  onClick={() => item._type === "note" ? navigate(`/?note=${item._id}`) : navigate(`/collection/${item._id}`)}
                   style={{ cursor: "pointer" }}
                 >
                   <td className="library-td library-note-name">
                     <span className="library-note-link">
-                      {col.emoji && <span className="library-note-emoji">{col.emoji}</span>}
-                      {col.name || "Sin título"}
+                      {item.emoji && <span className="library-note-emoji">{item.emoji}</span>}
+                      {item._type === "note" && <svg style={{ marginRight: 4, flexShrink: 0 }} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#999" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg>}
+                      {item._type === "collection" && <svg style={{ marginRight: 4, flexShrink: 0 }} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#999" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>}
+                      {item.name || item.title || "Sin título"}
                     </span>
                   </td>
-                  <td className="library-td library-time">{getRelativeTime(col.updatedAt)}</td>
+                  <td className="library-td library-time">{getRelativeTime(item.updatedAt)}</td>
                   <td className="library-td">
                     <div className="library-badges">
-                      {col.isPublic && <span className="library-badge library-badge-public">Pública</span>}
-                      {(col._sharedWithMe || (col.sharedWith && col.sharedWith.length > 0)) && <span className="library-badge library-badge-shared">Compartida</span>}
-                      {!col.isPublic && !(col._sharedWithMe || (col.sharedWith && col.sharedWith.length > 0)) && <span className="library-badge library-badge-private">Privada</span>}
-                      {col.isFavorite && <span className="library-badge library-badge-fav"><svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" width="13" height="13"><path strokeLinecap="round" strokeLinejoin="round" d="M11.48 3.499a.562.562 0 0 1 1.04 0l2.125 5.111a.563.563 0 0 0 .475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 0 0-.182.557l1.285 5.385a.562.562 0 0 1-.84.61l-4.725-2.885a.562.562 0 0 0-.586 0L6.982 20.54a.562.562 0 0 1-.84-.61l1.285-5.386a.562.562 0 0 0-.182-.557l-4.204-3.602a.562.562 0 0 1 .321-.988l5.518-.442a.563.563 0 0 0 .475-.345L11.48 3.5Z" /></svg>Favorita</span>}
+                      {item._type === "note" && <span className="library-badge library-badge-shared">Nota compartida</span>}
+                      {item._type === "collection" && <span className="library-badge library-badge-shared">Colección compartida</span>}
+                      {item.isPublic && <span className="library-badge library-badge-public">Pública</span>}
+                      {item.isFavorite && <span className="library-badge library-badge-fav"><svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" width="13" height="13"><path strokeLinecap="round" strokeLinejoin="round" d="M11.48 3.499a.562.562 0 0 1 1.04 0l2.125 5.111a.563.563 0 0 0 .475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 0 0-.182.557l1.285 5.385a.562.562 0 0 1-.84.61l-4.725-2.885a.562.562 0 0 0-.586 0L6.982 20.54a.562.562 0 0 1-.84-.61l1.285-5.386a.562.562 0 0 0-.182-.557l-4.204-3.602a.562.562 0 0 1 .321-.988l5.518-.442a.563.563 0 0 0 .475-.345L11.48 3.5Z" /></svg>Favorita</span>}
                     </div>
                   </td>
                 </tr>

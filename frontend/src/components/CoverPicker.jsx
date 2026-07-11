@@ -7,7 +7,6 @@ const CoverPicker = ({ noteId, coverUrl, coverPosition, onCoverChange, compact }
   const [hovering, setHovering] = useState(false);
   const [repositioning, setRepositioning] = useState(false);
   const menuRef = useRef(null);
-
   useEffect(() => {
     if (!menuOpen) return;
     const handler = (e) => {
