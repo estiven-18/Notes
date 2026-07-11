@@ -18,6 +18,8 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 3001;
 
+app.set("trust proxy", 1);
+
 const allowedOrigin = (process.env.FRONTEND_URL || "http://localhost:5173").replace(/\/$/, "");
 
 const uploadsDir = path.resolve("uploads");
@@ -34,7 +36,7 @@ app.use(
 app.use(express.json({ limit: "10mb" })); // Límite aumentado para contenido BlockNote
 app.use(express.urlencoded({ extended: true }));
 
-app.use("/uploads", express.static("uploads"));
+app.use("/uploads", express.static(uploadsDir));
 
 
 app.use("/api/document", documentRoutes);
