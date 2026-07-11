@@ -15,23 +15,19 @@ const useAutosave = (saveFn, deps = [], delay = 2000) => {
   const isFirstRender = useRef(true);
 
   useEffect(() => {
-    // No guardar en el primer render (ya se cargó el documento)
     if (isFirstRender.current) {
       isFirstRender.current = false;
       return;
     }
 
-    // Limpiar timeout anterior
     if (timeoutRef.current) {
       clearTimeout(timeoutRef.current);
     }
 
-    // Esperar el delay antes de guardar
     timeoutRef.current = setTimeout(() => {
       saveFn();
     }, delay);
 
-    // Limpiar al desmontar
     return () => {
       if (timeoutRef.current) {
         clearTimeout(timeoutRef.current);

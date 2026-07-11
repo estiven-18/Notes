@@ -3,14 +3,9 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-/**
- * Configuración de conexión a MongoDB
- * 
- * Utiliza variables de entorno para la URI de conexión.
- * Maneja eventos de conexión para logging y reconexión automática.
- */
 
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/notion-clone';
+
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/notes';
 
 /**
  * Conecta a la base de datos MongoDB
@@ -19,15 +14,13 @@ const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/notion
 export const connectDB = async () => {
   try {
     const conn = await mongoose.connect(MONGODB_URI, {
-      // Opciones de conexión recomendadas para producción
-      maxPoolSize: 10, // Máximo 10 conexiones en el pool
-      serverSelectionTimeoutMS: 5000, // Timeout de 5s para selección de servidor
-      socketTimeoutMS: 45000, // Timeout de 45s para operaciones
+      maxPoolSize: 10, 
+      serverSelectionTimeoutMS: 5000,
+      socketTimeoutMS: 45000, 
     });
 
     console.log(`MongoDB conectado: ${conn.connection.host}`);
     
-    // Eventos de conexión para monitoreo
     mongoose.connection.on('error', (err) => {
       console.error('Error de conexión MongoDB:', err);
     });
@@ -47,10 +40,7 @@ export const connectDB = async () => {
   }
 };
 
-/**
- * Cierra la conexión a MongoDB de forma limpia
- * Útil para tests y shutdown graceful
- */
+
 export const disconnectDB = async () => {
   await mongoose.connection.close();
   console.log('Conexión MongoDB cerrada');

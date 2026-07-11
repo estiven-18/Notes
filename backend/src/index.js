@@ -11,15 +11,12 @@ import authRoutes from "./routes/authRoutes.js";
 import notificationRoutes from "./routes/notificationRoutes.js";
 import uploadRoutes from "./routes/uploadRoutes.js";
 
-// Cargar variables de entorno
 dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-/**
- * Middlewares globales
- */
+
 app.use(
   cors({
     origin: process.env.FRONTEND_URL || "http://localhost:5173",
@@ -29,22 +26,16 @@ app.use(
 app.use(express.json({ limit: "10mb" })); // Límite aumentado para contenido BlockNote
 app.use(express.urlencoded({ extended: true }));
 
-// Servir archivos subidos estáticamente
 app.use("/uploads", express.static("uploads"));
 
-/**
- * Rutas de la API
- */
+
 app.use("/api/document", documentRoutes);
 app.use("/api/collections", collectionRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/upload", uploadRoutes);
 
-/**
- * Health check endpoint
- * Útil para monitoreo y load balancers
- */
+
 app.get("/api/health", (req, res) => {
   res.json({
     status: "ok",
@@ -53,9 +44,6 @@ app.get("/api/health", (req, res) => {
   });
 });
 
-/**
- * Manejo de rutas no encontradas (404)
- */
 app.use((req, res) => {
   res.status(404).json({
     success: false,
@@ -63,13 +51,11 @@ app.use((req, res) => {
   });
 });
 
-/**
- * Manejo global de errores
- */
+
+// Manejo de errores global
 app.use((err, req, res, next) => {
   console.error("Error no manejado:", err);
 
-  // Error de validación de Mongoose
   if (err.name === "ValidationError") {
     return res.status(400).json({
       success: false,
@@ -78,7 +64,6 @@ app.use((err, req, res, next) => {
     });
   }
 
-  // Error de duplicado (unique index)
   if (err.code === 11000) {
     return res.status(409).json({
       success: false,
@@ -87,7 +72,6 @@ app.use((err, req, res, next) => {
     });
   }
 
-  // Error genérico
   res.status(500).json({
     success: false,
     message: "Error interno del servidor",
@@ -95,26 +79,19 @@ app.use((err, req, res, next) => {
   });
 });
 
-/**
- * Iniciar servidor
- */
+
 const startServer = async () => {
   try {
-    // Conectar a MongoDB
     await connectDB();
 
-    // Migrar datos antiguos de sharedWith al nuevo formato [{user, role}]
     await migrateSharedWith();
 
-    // Configurar limpieza automática de papelera (30 días)
     setupTrashCleanup();
 
-    // Iniciar servidor Express
     const server = app.listen(PORT, () => {
       console.log(`Servidor Backend Iniciado Puerto: ${PORT}`);
     });
 
-    // Servidor de señalización WebSocket para Yjs
     setupSignalingServer(server);
     console.log("Servidor de señalización WebSocket iniciado");
   } catch (error) {
@@ -123,9 +100,6 @@ const startServer = async () => {
   }
 };
 
-/**
- * Manejo graceful shutdown
- */
 process.on("SIGTERM", async () => {
   console.log("SIGTERM recibido. Cerrando servidor...");
   process.exit(0);
@@ -136,7 +110,6 @@ process.on("SIGINT", async () => {
   process.exit(0);
 });
 
-// Iniciar
 startServer();
 
 export default app;
