@@ -80,7 +80,7 @@ const uploadToCloudinary = (file) => new Promise((resolve, reject) => {
 });
 
 export const uploadFile = (req, res) => {
-  upload.single("file")(req, res, (err) => {
+  upload.single("file")(req, res, async (err) => {
     if (err) {
       console.error("Upload error:", err);
       return res.status(500).json({ success: false, message: err.message });
