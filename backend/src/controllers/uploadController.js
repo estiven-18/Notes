@@ -1,42 +1,28 @@
+import { v2 as cloudinary } from "cloudinary";
+import { CloudinaryStorage } from "multer-storage-cloudinary";
 import multer from "multer";
-import path from "path";
-import crypto from "crypto";
-import { fileURLToPath } from "url";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const UPLOADS_DIR = path.resolve(__dirname, "../../uploads");
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
 
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, UPLOADS_DIR);
-  },
-  filename: (req, file, cb) => {
-    const ext = path.extname(file.originalname);
-    const name = crypto.randomUUID();
-    cb(null, `${name}${ext}`);
+const storage = new CloudinaryStorage({
+  cloudinary,
+  params: {
+    folder: "notes-uploads",
+    allowed_formats: ["jpg", "jpeg", "png", "gif", "webp", "pdf"],
+    resource_type: "auto",
   },
 });
 
-const upload = multer({
-  storage,
-  limits: { fileSize: 50 * 1024 * 1024 },
-});
+const upload = multer({ storage, limits: { fileSize: 50 * 1024 * 1024 } });
 
 export const uploadFile = (req, res) => {
   upload.single("file")(req, res, (err) => {
-    if (err) {
-      if (err instanceof multer.MulterError) {
-        return res.status(400).json({ success: false, message: err.message });
-      }
-      return res.status(500).json({ success: false, message: "Error al subir archivo" });
-    }
-    if (!req.file) {
-      return res.status(400).json({ success: false, message: "No se envió ningún archivo" });
-    }
-    const protocol = req.protocol;
-    const host = req.get("host");
-    const url = `${protocol}://${host}/uploads/${req.file.filename}`;
-    res.json({ success: true, data: { url, filename: req.file.filename } });
+    if (err) return res.status(500).json({ success: false, message: err.message });
+    if (!req.file) return res.status(400).json({ success: false, message: "No file" });
+    res.json({ success: true, data: { url: req.file.path, filename: req.file.filename } });
   });
 };
